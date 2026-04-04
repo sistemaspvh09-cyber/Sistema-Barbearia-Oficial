@@ -1,5 +1,5 @@
 import {
-  Settings, Store, Paintbrush, BellRing, ShieldCheck, CreditCard,
+  Settings, Store, BellRing, ShieldCheck, CreditCard,
   Smartphone, Save, Globe, Clock, CalendarDays, SmartphoneNfc,
   CheckCircle2, Loader2, Upload, Link, Unlink, RefreshCw, Zap,
 } from 'lucide-react';
@@ -515,12 +515,6 @@ const AdminView = () => {
             </div>
           )}
 
-          {activeTab === 'personalizar' && (
-            <div className="glass-card rounded-[1.5rem] p-8 border border-white/5 text-center py-16">
-              <Paintbrush size={40} className="text-on-surface-variant mx-auto mb-4" />
-              <p className="text-white font-bold">Personalização Visual — em breve</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

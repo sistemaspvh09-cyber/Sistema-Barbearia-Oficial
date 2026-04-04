@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, X, CheckCheck, Trash2, Calendar, Clock, CheckCircle, XCircle, Star, AlertCircle } from 'lucide-react';
+import { Bell, X, CheckCheck, Trash2, Clock, CheckCircle, XCircle, Star } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNotifications, type Notification } from '../../contexts/NotificationContext';

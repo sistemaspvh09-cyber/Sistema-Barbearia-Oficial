@@ -34,7 +34,6 @@ const AgendamentoModal = () => {
   const { showToast } = useNotificationToast();
 
   const [barbershopId, setBarbershopId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Form state
   const [clientSearch, setClientSearch] = useState('');
@@ -63,7 +62,6 @@ const AgendamentoModal = () => {
       if (!userData?.barbershopId) return;
       const bsId = userData.barbershopId as string;
       setBarbershopId(bsId);
-      setCurrentUserId(userData.id as string);
 
       // If barber, pre-select self
       if (isBarber) {

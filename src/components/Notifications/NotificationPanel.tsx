@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Bell, X, CheckCheck, Trash2, Calendar, DollarSign, Package, Star, UserPlus, AlertTriangle, ShoppingBag, Clock } from 'lucide-react';
+import { Bell, X, CheckCheck, Trash2, Calendar, DollarSign, Package, Star, UserPlus, AlertTriangle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNotifications, type Notification } from '../../contexts/NotificationContext';

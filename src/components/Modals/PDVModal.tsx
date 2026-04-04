@@ -378,7 +378,7 @@ const PDVModal = () => {
                   </div>
                   <p className="text-white font-bold mb-1">Aproxime o cartão ao leitor</p>
                   <p className="text-xs text-on-surface-variant mb-6">Via InfinitePay · NFC habilitado</p>
-                  <button onClick={() => triggerTapToPay(amountCents / 100)}
+                  <button onClick={() => triggerTapToPay({ amount: amountCents / 100, referenceId: transactionId })}
                     className="w-full py-4 bg-[#C8FF00] text-[#4f6700] font-black rounded-xl mb-3 hover:bg-[#b3e600] transition-colors shadow-[0_0_20px_rgba(200,255,0,0.25)]">
                     <Wifi size={18} className="inline mr-2 rotate-90" /> Abrir InfinitePay
                   </button>

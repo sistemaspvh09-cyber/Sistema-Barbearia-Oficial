@@ -4,7 +4,7 @@ import { useModal } from '../../contexts/ModalContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useNotificationToast } from '../../contexts/NotificationToastContext';
-import { createCalendarEvent, isConnected, isSyncEnabled } from '../../lib/googleCalendar';
+import { createCalendarEvent, isAutoOpenEnabled } from '../../lib/googleCalendar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -125,8 +125,8 @@ const AgendamentoModal = () => {
 
       if (error) throw error;
 
-      // Sync to Google Calendar if connected and enabled
-      if (isConnected() && isSyncEnabled()) {
+      // Open Google Calendar event in new tab if auto-open is enabled
+      if (isAutoOpenEnabled()) {
         const barberName = isBarber
           ? (user?.user_metadata?.full_name ?? user?.email ?? 'Barbeiro')
           : (barbers.find((b) => b.id === selectedBarberId)?.name ?? 'Barbeiro');
@@ -265,11 +265,11 @@ const AgendamentoModal = () => {
                 </div>
               </div>
 
-              {/* Google sync indicator */}
-              {isConnected() && isSyncEnabled() && (
+              {/* Google Calendar indicator */}
+              {isAutoOpenEnabled() && (
                 <div className="flex items-center gap-2 text-xs text-[#C8FF00]/70">
                   <Calendar size={12} />
-                  <span>Será sincronizado com o Google Calendar</span>
+                  <span>Abrirá no Google Calendar para salvar</span>
                 </div>
               )}
             </div>

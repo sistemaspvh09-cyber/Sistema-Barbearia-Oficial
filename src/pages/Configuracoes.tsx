@@ -1,16 +1,13 @@
 import {
   Settings, Store, BellRing, ShieldCheck, CreditCard,
   Smartphone, Save, Globe, Clock, CalendarDays, SmartphoneNfc,
-  CheckCircle2, Loader2, Upload, Link, Unlink, RefreshCw, Zap,
+  CheckCircle2, Loader2, Upload, Link, Zap,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { useBarbershopSettings } from '../hooks/useBarbershopSettings';
 import { useNotificationToast } from '../contexts/NotificationToastContext';
-import {
-  connectGoogle, disconnectGoogle, isConnected, isSyncEnabled,
-  setSyncEnabled, isClientIdConfigured,
-} from '../lib/googleCalendar';
+import { isAutoOpenEnabled, setAutoOpen } from '../lib/googleCalendar';
 
 // ─── Day labels ───────────────────────────────────────────────────────────────
 const DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -20,36 +17,10 @@ type AdminTab = 'perfil' | 'horario' | 'integracoes' | 'pagamentos' | 'notificac
 // ─── Barber view ──────────────────────────────────────────────────────────────
 
 const BarberView = () => {
-  const [googleConnected, setGoogleConnected] = useState(isConnected());
-  const [connecting, setConnecting] = useState(false);
-  const [syncEnabled, setSyncEnabledLocal] = useState(isSyncEnabled());
-  const { showToast } = useNotificationToast();
-
-  const handleConnectGoogle = async () => {
-    if (googleConnected) {
-      await disconnectGoogle();
-      setGoogleConnected(false);
-      setSyncEnabledLocal(false);
-      showToast({ type: 'info', title: 'Google desconectado' });
-      return;
-    }
-    if (!isClientIdConfigured()) {
-      showToast({ type: 'warning', title: 'Google não configurado', message: 'VITE_GOOGLE_CLIENT_ID não está definido.' });
-      return;
-    }
-    setConnecting(true);
-    const ok = await connectGoogle();
-    setConnecting(false);
-    if (ok) {
-      setGoogleConnected(true);
-      showToast({ type: 'success', title: 'Google Agenda conectado!' });
-    } else {
-      showToast({ type: 'error', title: 'Falha ao conectar Google' });
-    }
-  };
+  const [syncEnabled, setSyncEnabledLocal] = useState(isAutoOpenEnabled());
 
   const handleToggleSync = (enabled: boolean) => {
-    setSyncEnabled(enabled);
+    setAutoOpen(enabled);
     setSyncEnabledLocal(enabled);
   };
 
@@ -98,41 +69,30 @@ const BarberView = () => {
               <CalendarDays className="text-white" size={28} /> Google Agenda
             </h2>
             <p className="text-sm text-on-surface-variant mb-6 max-w-2xl">
-              Sincronize seus agendamentos com o Google Calendar. Novos horários aparecem automaticamente no seu celular.
+              Após cada agendamento, o Google Calendar abre com o evento preenchido. Basta clicar em <strong className="text-white">Salvar</strong>.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-between p-5 bg-surface-container border border-white/5 rounded-2xl mb-4">
-              <div className="flex items-center gap-4 mb-4 sm:mb-0">
-                <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center p-2 shrink-0">
-                  <GoogleIcon />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Google Calendar</h4>
-                  {googleConnected
-                    ? <p className="text-xs text-[#C8FF00] font-bold mt-0.5">✓ Conectado</p>
-                    : <p className="text-xs text-on-surface-variant mt-0.5">Não conectado</p>}
-                </div>
+            <div className="p-5 bg-surface-container border border-white/5 rounded-2xl mb-4 flex items-center gap-4">
+              <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center p-2 shrink-0">
+                <GoogleIcon />
               </div>
-              <button onClick={handleConnectGoogle} disabled={connecting}
-                className={`px-5 py-2.5 font-bold rounded-xl transition-all flex items-center gap-2 text-sm disabled:opacity-60 ${googleConnected ? 'bg-surface-container-highest text-white hover:text-red-400 hover:border-red-400/30 border border-white/10' : 'bg-white text-black hover:bg-gray-100'}`}>
-                {connecting
-                  ? <Loader2 size={16} className="animate-spin" />
-                  : googleConnected ? <><Unlink size={14} /> Desconectar</> : <><GoogleIcon small /> Conectar Google</>}
-              </button>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-white">Abre no Google Calendar da sua conta</h4>
+                <p className="text-xs text-on-surface-variant mt-0.5">Já conectado à conta Google do navegador</p>
+              </div>
+              <span className="text-[#C8FF00] text-xs font-bold shrink-0">✓ Ativo</span>
             </div>
 
-            {googleConnected && (
-              <div className="p-4 bg-[#C8FF00]/5 border border-[#C8FF00]/20 rounded-xl flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-[#C8FF00]">Sincronizar automaticamente</p>
-                  <p className="text-xs text-on-surface-variant mt-0.5">Novos agendamentos são enviados ao Google Calendar</p>
-                </div>
-                <button onClick={() => handleToggleSync(!syncEnabled)}
-                  className={`w-12 h-6 rounded-full p-1 transition-colors ${syncEnabled ? 'bg-[#C8FF00]' : 'bg-white/10'}`}>
-                  <div className={`w-4 h-4 rounded-full bg-[#0D0D0D] shadow-md transition-transform ${syncEnabled ? 'translate-x-6' : ''}`} />
-                </button>
+            <div className="p-4 bg-[#C8FF00]/5 border border-[#C8FF00]/20 rounded-xl flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-[#C8FF00]">Abrir Calendar após agendar</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">Abre nova aba com o evento preenchido automaticamente</p>
               </div>
-            )}
+              <button onClick={() => handleToggleSync(!syncEnabled)}
+                className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${syncEnabled ? 'bg-[#C8FF00]' : 'bg-white/10'}`}>
+                <div className={`w-4 h-4 rounded-full bg-[#0D0D0D] shadow-md transition-transform ${syncEnabled ? 'translate-x-6' : ''}`} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -166,11 +126,8 @@ const AdminView = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // Google
-  const [googleConnected, setGoogleConnected] = useState(isConnected());
-  const [connecting, setConnecting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncEnabled, setSyncEnabledLocal] = useState(isSyncEnabled());
+  // Google Calendar auto-open toggle
+  const [syncEnabled, setSyncEnabledLocal] = useState(isAutoOpenEnabled());
 
   // Populate form when barbershop data loads
   useEffect(() => {
@@ -215,26 +172,7 @@ const AdminView = () => {
     else showToast({ type: 'error', title: 'Erro ao salvar horários' });
   };
 
-  const handleConnectGoogle = async () => {
-    if (googleConnected) {
-      await disconnectGoogle();
-      setGoogleConnected(false);
-      setSyncEnabledLocal(false);
-      showToast({ type: 'info', title: 'Google desconectado' });
-      return;
-    }
-    if (!isClientIdConfigured()) {
-      showToast({ type: 'warning', title: 'Google não configurado', message: 'Configure VITE_GOOGLE_CLIENT_ID na Vercel.' });
-      return;
-    }
-    setConnecting(true);
-    const ok = await connectGoogle();
-    setConnecting(false);
-    if (ok) { setGoogleConnected(true); showToast({ type: 'success', title: 'Google Agenda conectado!' }); }
-    else showToast({ type: 'error', title: 'Falha ao conectar Google' });
-  };
-
-  const handleToggleSync = (enabled: boolean) => { setSyncEnabled(enabled); setSyncEnabledLocal(enabled); };
+  const handleToggleSync = (enabled: boolean) => { setAutoOpen(enabled); setSyncEnabledLocal(enabled); };
 
   const TABS: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'perfil',       label: 'Perfil da Loja',      icon: <Store size={18} /> },
@@ -408,71 +346,36 @@ const AdminView = () => {
             <div className="space-y-6">
               {/* Google Calendar */}
               <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <CalendarDays className="text-[#C8FF00]" size={24} /> Google Calendar
-                  </h2>
-                  {googleConnected && (
-                    <span className="text-xs font-bold px-3 py-1 bg-[#C8FF00]/10 text-[#C8FF00] rounded-full border border-[#C8FF00]/20">Conectado</span>
-                  )}
+                <div className="flex items-center gap-2 mb-2">
+                  <CalendarDays className="text-[#C8FF00]" size={24} />
+                  <h2 className="text-xl font-bold text-white">Google Calendar</h2>
+                  <span className="text-xs font-bold px-3 py-1 bg-[#C8FF00]/10 text-[#C8FF00] rounded-full border border-[#C8FF00]/20 ml-auto">Pronto para usar</span>
                 </div>
                 <p className="text-sm text-on-surface-variant mb-6">
-                  Sincronize agendamentos com o Google Calendar. Cada novo agendamento cria automaticamente um evento no calendário.
+                  Após cada agendamento, o Google Calendar abre automaticamente com o evento preenchido — basta clicar em <strong className="text-white">Salvar</strong>. Sem login extra, sem configuração.
                 </p>
 
-                {!isClientIdConfigured() && (
-                  <div className="mb-5 p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl">
-                    <p className="text-xs font-bold text-orange-400 mb-1">⚠️ Configuração necessária</p>
-                    <p className="text-xs text-on-surface-variant">
-                      Adicione <code className="text-orange-300 bg-orange-900/30 px-1 rounded">VITE_GOOGLE_CLIENT_ID</code> nas variáveis de ambiente da Vercel.
-                      Crie um projeto em <span className="text-white">console.cloud.google.com</span> → ative o Google Calendar API → crie OAuth 2.0 Client ID (Web App).
-                    </p>
+                <div className="p-5 bg-surface-container border border-white/5 rounded-2xl mb-4 flex items-center gap-4">
+                  <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center p-2 shrink-0">
+                    <GoogleIcon />
                   </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row items-center justify-between p-5 bg-surface-container border border-white/5 rounded-2xl mb-4">
-                  <div className="flex items-center gap-4 mb-4 sm:mb-0">
-                    <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center p-2 shrink-0">
-                      <GoogleIcon />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">Google Calendar API</p>
-                      <p className={`text-xs mt-0.5 font-bold ${googleConnected ? 'text-[#C8FF00]' : 'text-on-surface-variant'}`}>
-                        {googleConnected ? '✓ Autenticado — token ativo' : 'Não autenticado'}
-                      </p>
-                    </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-white">Abre no Google Calendar da sua conta</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Já conectado à conta Google do navegador</p>
                   </div>
-                  <button onClick={handleConnectGoogle} disabled={connecting}
-                    className={`px-5 py-2.5 font-bold rounded-xl transition-all flex items-center gap-2 text-sm disabled:opacity-60 ${googleConnected ? 'bg-surface-container-highest text-white hover:text-red-400 border border-white/10' : 'bg-white text-black hover:bg-gray-100'}`}>
-                    {connecting ? <Loader2 size={16} className="animate-spin" />
-                      : googleConnected ? <><Unlink size={14} /> Desconectar</> : <><GoogleIcon small /> Conectar</>}
-                  </button>
+                  <span className="text-[#C8FF00] text-xs font-bold">✓ Ativo</span>
                 </div>
 
-                {googleConnected && (
-                  <div className="space-y-3">
-                    <div className="p-4 bg-[#C8FF00]/5 border border-[#C8FF00]/20 rounded-xl flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold text-[#C8FF00]">Sincronização automática</p>
-                        <p className="text-xs text-on-surface-variant mt-0.5">Novos agendamentos viram eventos no Calendar</p>
-                      </div>
-                      <button onClick={() => handleToggleSync(!syncEnabled)}
-                        className={`w-12 h-6 rounded-full p-1 transition-colors ${syncEnabled ? 'bg-[#C8FF00]' : 'bg-white/10'}`}>
-                        <div className={`w-4 h-4 rounded-full bg-[#0D0D0D] shadow-md transition-transform ${syncEnabled ? 'translate-x-6' : ''}`} />
-                      </button>
-                    </div>
-                    <button onClick={async () => {
-                      setSyncing(true);
-                      await new Promise((r) => setTimeout(r, 1200));
-                      setSyncing(false);
-                      showToast({ type: 'success', title: 'Sincronização concluída', message: 'Agendamentos do mês enviados ao Calendar.' });
-                    }} disabled={syncing}
-                      className="w-full py-3 border border-white/10 bg-surface-container text-white font-bold rounded-xl hover:bg-white/5 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
-                      {syncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                      {syncing ? 'Sincronizando...' : 'Sincronizar histórico do mês'}
-                    </button>
+                <div className="p-4 bg-[#C8FF00]/5 border border-[#C8FF00]/20 rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-[#C8FF00]">Abrir Calendar após agendar</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Abre nova aba com o evento preenchido automaticamente</p>
                   </div>
-                )}
+                  <button onClick={() => handleToggleSync(!syncEnabled)}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${syncEnabled ? 'bg-[#C8FF00]' : 'bg-white/10'}`}>
+                    <div className={`w-4 h-4 rounded-full bg-[#0D0D0D] shadow-md transition-transform ${syncEnabled ? 'translate-x-6' : ''}`} />
+                  </button>
+                </div>
               </div>
 
               {/* InfinitePay */}

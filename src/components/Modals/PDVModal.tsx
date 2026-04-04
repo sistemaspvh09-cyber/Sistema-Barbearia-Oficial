@@ -5,7 +5,6 @@ import { useModal } from '../../contexts/ModalContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { createTransaction, PAYMENT_METHOD_LABEL, type PaymentMethod } from '../../services/transactionService';
-import { triggerTapToPay } from '../../lib/infinitePay';
 import { useNotificationToast } from '../../contexts/NotificationToastContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -361,31 +360,36 @@ const PDVModal = () => {
 
               {/* Cartão */}
               {(selectedMethod === 'CREDIT_CARD' || selectedMethod === 'DEBIT_CARD') && (
-                <div className="text-center py-6">
-                  <p className="text-3xl font-black text-[#C8FF00] mb-2">{formatCurrency(amountCents)}</p>
-                  <p className="text-sm text-on-surface-variant mb-8">{selectedMethod === 'CREDIT_CARD' ? 'Cartão de Crédito' : 'Cartão de Débito'}</p>
-                  <div className="relative flex items-center justify-center mb-8">
-                    <div className="w-28 h-28 rounded-full bg-[#C8FF00]/5 flex items-center justify-center">
-                      <div className="w-20 h-20 rounded-full bg-[#C8FF00]/10 flex items-center justify-center"
+                <div className="text-center py-4">
+                  {/* Valor em destaque */}
+                  <div className="mb-6 p-5 bg-[#C8FF00]/5 border border-[#C8FF00]/20 rounded-2xl">
+                    <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-1">Valor a cobrar</p>
+                    <p className="text-4xl font-black text-[#C8FF00]">{formatCurrency(amountCents)}</p>
+                    <p className="text-sm text-on-surface-variant mt-1">{selectedMethod === 'CREDIT_CARD' ? 'Cartão de Crédito' : 'Cartão de Débito'}</p>
+                  </div>
+
+                  {/* NFC animation */}
+                  <div className="relative flex items-center justify-center mb-6">
+                    <div className="w-24 h-24 rounded-full bg-[#C8FF00]/5 flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-full bg-[#C8FF00]/10 flex items-center justify-center"
                         style={{ animation: 'nfcPulse 1.8s ease-in-out infinite' }}>
-                        <Wifi size={40} className="text-[#C8FF00] rotate-90" />
+                        <Wifi size={32} className="text-[#C8FF00] rotate-90" />
                       </div>
                     </div>
                     {[0, 1, 2].map((i) => (
                       <div key={i} className="absolute rounded-full border border-[#C8FF00]/20"
-                        style={{ width: `${120 + i * 40}px`, height: `${120 + i * 40}px`, animation: `nfcPulse ${1.4 + i * 0.3}s ${i * 0.2}s ease-in-out infinite` }} />
+                        style={{ width: `${100 + i * 36}px`, height: `${100 + i * 36}px`, animation: `nfcPulse ${1.4 + i * 0.3}s ${i * 0.2}s ease-in-out infinite` }} />
                     ))}
                   </div>
-                  <p className="text-white font-bold mb-1">Aproxime o cartão ao leitor</p>
-                  <p className="text-xs text-on-surface-variant mb-6">Via InfinitePay · NFC habilitado</p>
-                  <button onClick={() => triggerTapToPay({ amount: amountCents / 100, referenceId: transactionId })}
-                    className="w-full py-4 bg-[#C8FF00] text-[#4f6700] font-black rounded-xl mb-3 hover:bg-[#b3e600] transition-colors shadow-[0_0_20px_rgba(200,255,0,0.25)]">
-                    <Wifi size={18} className="inline mr-2 rotate-90" /> Abrir InfinitePay
-                  </button>
+
+                  {/* Instructions */}
+                  <p className="text-white font-bold mb-1">Abra o app InfinitePay no celular</p>
+                  <p className="text-xs text-on-surface-variant mb-6">Selecione <strong className="text-white">InfiniteTap</strong>, insira o valor acima e aproxime o cartão</p>
+
                   <button onClick={confirmPayment} disabled={processing}
-                    className="w-full py-3 bg-surface-container border border-white/10 text-white font-bold rounded-xl hover:bg-white/5 transition-colors disabled:opacity-50">
-                    {processing && <Loader2 size={16} className="inline animate-spin mr-2" />}
-                    Confirmar Manualmente
+                    className="w-full py-4 bg-[#C8FF00] text-[#4f6700] font-black rounded-xl hover:bg-[#b3e600] transition-colors shadow-[0_0_20px_rgba(200,255,0,0.25)] disabled:opacity-50 flex items-center justify-center gap-2">
+                    {processing ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                    {processing ? 'Confirmando...' : 'Confirmar Pagamento'}
                   </button>
                 </div>
               )}

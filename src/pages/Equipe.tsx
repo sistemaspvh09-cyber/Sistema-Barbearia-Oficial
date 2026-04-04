@@ -1,12 +1,12 @@
 
-import { 
-  Plus, 
-  Zap, 
-  TrendingUp, 
-  MoreVertical, 
-  ArrowRight, 
-  UserPlus, 
-  CheckCircle 
+import {
+  Plus,
+  Zap,
+  TrendingUp,
+  MoreVertical,
+  ArrowRight,
+  UserPlus,
+  CheckCircle
 } from 'lucide-react';
 
 const Equipe = () => {
@@ -36,13 +36,13 @@ const Equipe = () => {
               <span className="text-[10px] font-bold text-primary uppercase tracking-widest">InfinitePay</span>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-4 mb-6 mt-8">
             <div className="relative">
-              <img 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAeilDbZp3MORhVwAjsfUDgOc-64ZIbNRo4cSu_K1sUhHXUzMcHDS4zja4xh8F4yeuYHcPngXdsq3T46-4bidlZkVbg8qyFTXl2S-5VyxzuWKwe1S9_H7ob9nhXt1lkarAsvfl_-K_oYPjxJ3OfnBG0j-5B8hwRw8lH7n24hPJwssTmCtjuQRQvyDV4w_VrjD7bXuLmL5YMkEHz7vmD8eFlT-R7P6oTIOMrIqDAEo1QV23xpleTjNYvKwCz8o8AT5zOXiRYhjJ77ac" 
-                alt="Bruno 'The King'" 
-                className="w-20 h-20 rounded-2xl object-cover bg-surface-container group-hover:scale-105 transition-transform duration-500" 
+              <img
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAeilDbZp3MORhVwAjsfUDgOc-64ZIbNRo4cSu_K1sUhHXUzMcHDS4zja4xh8F4yeuYHcPngXdsq3T46-4bidlZkVbg8qyFTXl2S-5VyxzuWKwe1S9_H7ob9nhXt1lkarAsvfl_-K_oYPjxJ3OfnBG0j-5B8hwRw8lH7n24hPJwssTmCtjuQRQvyDV4w_VrjD7bXuLmL5YMkEHz7vmD8eFlT-R7P6oTIOMrIqDAEo1QV23xpleTjNYvKwCz8o8AT5zOXiRYhjJ77ac"
+                alt="Bruno 'The King'"
+                className="w-20 h-20 rounded-2xl object-cover bg-surface-container group-hover:scale-105 transition-transform duration-500"
               />
               <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary border-4 border-surface-container-low rounded-full"></span>
             </div>
@@ -62,7 +62,7 @@ const Equipe = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-surface-container-low rounded-2xl p-4 flex justify-between items-center">
             <div>
               <p className="text-[10px] text-on-surface-variant uppercase font-bold mb-1">Faturamento Mês</p>
@@ -70,7 +70,7 @@ const Equipe = () => {
             </div>
             <TrendingUp size={28} className="text-on-surface-variant/30" />
           </div>
-          
+
           <div className="mt-6 flex gap-3">
             <button className="flex-1 py-2 text-xs font-bold border border-outline-variant/30 rounded-lg hover:bg-white/5 transition-colors">Editar Perfil</button>
             <button className="px-3 py-2 text-on-surface-variant hover:text-white transition-colors">
@@ -87,13 +87,13 @@ const Equipe = () => {
               <span className="text-[10px] font-bold text-primary uppercase tracking-widest">InfinitePay</span>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-4 mb-6 mt-8">
             <div className="relative">
-              <img 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4hghKP5H_mbACBiUAMCnLZiTPTeP5M-7lYgxcQcdFVYrj4LO6mPCzmMs-ze-a3_G3WVqkEq3UI6Bb2owY68e65bU3Vn7lbBCslq-X1UCEqcsnrg4J9LmpRkK650U6jbNPcItbo0Np19PDS7sR6Rjpm5lXx1JhU-urO_lsVakBrJ0O8oB4UvwdqWq2Gk1bNjVK50SszCmQAyyO3XSBMKpTRBBQfOnz_s7MR29CN-pUTBNdwt0Meusc65cylwmrdR-Iw69pFYXKxCWK" 
-                alt="Luana Souza" 
-                className="w-20 h-20 rounded-2xl object-cover bg-surface-container group-hover:scale-105 transition-transform duration-500" 
+              <img
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4hghKP5H_mbACBiUAMCnLZiTPTeP5M-7lYgxcQcdFVYrj4LO6mPCzmMs-ze-a3_G3WVqkEq3UI6Bb2owY68e65bU3Vn7lbBCslq-X1UCEqcsnrg4J9LmpRkK650U6jbNPcItbo0Np19PDS7sR6Rjpm5lXx1JhU-urO_lsVakBrJ0O8oB4UvwdqWq2Gk1bNjVK50SszCmQAyyO3XSBMKpTRBBQfOnz_s7MR29CN-pUTBNdwt0Meusc65cylwmrdR-Iw69pFYXKxCWK"
+                alt="Luana Souza"
+                className="w-20 h-20 rounded-2xl object-cover bg-surface-container group-hover:scale-105 transition-transform duration-500"
               />
               <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary border-4 border-surface-container-low rounded-full"></span>
             </div>
@@ -113,7 +113,7 @@ const Equipe = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-surface-container-low rounded-2xl p-4 flex justify-between items-center">
             <div>
               <p className="text-[10px] text-on-surface-variant uppercase font-bold mb-1">Faturamento Mês</p>
@@ -121,7 +121,7 @@ const Equipe = () => {
             </div>
             <TrendingUp size={28} className="text-on-surface-variant/30" />
           </div>
-          
+
           <div className="mt-6 flex gap-3">
             <button className="flex-1 py-2 text-xs font-bold border border-outline-variant/30 rounded-lg hover:bg-white/5 transition-colors">Editar Perfil</button>
             <button className="px-3 py-2 text-on-surface-variant hover:text-white transition-colors">
@@ -138,13 +138,13 @@ const Equipe = () => {
               <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Pendente</span>
             </div>
           </div>
-          
+
           <div className="flex items-start gap-4 mb-6 mt-8">
             <div className="relative">
-              <img 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuJFf8XuutfSy_pvmVGJcvS4wlEJRsvgqkmUyUAD8Pkad52VKUzKhGbq1MBxH8PSziNTafCrFRdPNjK7blMDkzDgivhNkHYMkXpHF37dMEveFFzNoltDbdIi8e4Pm8x0G0q1aavpoufEwq0RHP_3s_CdgSkZk_E3qcS87wTWug0NoDXpRlr09yfKGMPYpxiXqkbusUL-ExNMw3bIo2g8G76NjT7IfnTT2EXcLLlTqtfdIyPYIBIs4Z__Wwlkk9BtgGXHyV4qH1sACl" 
-                alt="Marcus V." 
-                className="w-20 h-20 rounded-2xl object-cover bg-surface-container group-hover:scale-105 transition-transform duration-500" 
+              <img
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuJFf8XuutfSy_pvmVGJcvS4wlEJRsvgqkmUyUAD8Pkad52VKUzKhGbq1MBxH8PSziNTafCrFRdPNjK7blMDkzDgivhNkHYMkXpHF37dMEveFFzNoltDbdIi8e4Pm8x0G0q1aavpoufEwq0RHP_3s_CdgSkZk_E3qcS87wTWug0NoDXpRlr09yfKGMPYpxiXqkbusUL-ExNMw3bIo2g8G76NjT7IfnTT2EXcLLlTqtfdIyPYIBIs4Z__Wwlkk9BtgGXHyV4qH1sACl"
+                alt="Marcus V."
+                className="w-20 h-20 rounded-2xl object-cover bg-surface-container group-hover:scale-105 transition-transform duration-500"
               />
               <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary border-4 border-surface-container-low rounded-full"></span>
             </div>
@@ -164,7 +164,7 @@ const Equipe = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-surface-container-low rounded-2xl p-4 flex justify-between items-center">
             <div>
               <p className="text-[10px] text-on-surface-variant uppercase font-bold mb-1">Faturamento Mês</p>
@@ -172,7 +172,7 @@ const Equipe = () => {
             </div>
             <ArrowRight size={28} className="text-on-surface-variant/30" />
           </div>
-          
+
           <div className="mt-6 flex gap-3">
             <button onClick={() => alert('Edição de perfil em desenvolvimento.')} className="flex-1 py-2 text-xs font-bold border border-outline-variant/30 rounded-lg hover:bg-white/5 transition-colors">Editar Perfil</button>
             <button onClick={() => alert('Mais opções...')} className="px-3 py-2 text-on-surface-variant hover:text-white transition-colors">
@@ -202,12 +202,12 @@ const Equipe = () => {
               <option>Luana Souza</option>
             </select>
           </div>
-          
+
           {/* Mock Graph Representation */}
           <div className="h-48 flex items-end gap-2 px-2">
             {[40, 65, 55, 90, 75, 45, 30].map((height, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className={`flex-1 rounded-t-xl transition-colors ${height === 90 ? 'bg-primary shadow-[0_-10px_20px_rgba(200,255,0,0.2)]' : 'bg-surface-container-highest hover:bg-primary/20'}`}
                 style={{ height: `${height}%` }}
               ></div>

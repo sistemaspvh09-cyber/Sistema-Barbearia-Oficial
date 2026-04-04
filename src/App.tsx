@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/Layout/MainLayout';
 import CustomerLayout from './components/Layout/CustomerLayout';
@@ -19,6 +18,7 @@ import Login from './pages/Login';
 import ProtectedRoute from './components/Layout/ProtectedRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ModalProvider } from './contexts/ModalContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { NotificationToastProvider } from './contexts/NotificationToastContext';
 
 const RootRedirect = () => {
@@ -40,51 +40,51 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
   return (
     <AuthProvider>
-      <NotificationToastProvider>
-        <ModalProvider>
-          <BrowserRouter>
-            <Routes>
-              {/* Customer Public Area (B2C) */}
-              <Route path="/app" element={<CustomerLayout />}>
-                <Route index element={<CustomerHome />} />
-                <Route path="agendar" element={<CustomerBooking />} />
-                <Route path="checkout" element={<CustomerCheckout />} />
-                <Route path="historico" element={<CustomerHistory />} />
-                <Route path="notificacoes" element={<CustomerNotifications />} />
-                <Route path="login" element={<Login />} />
-              </Route>
+      <NotificationProvider>
+        <NotificationToastProvider>
+          <ModalProvider>
+            <BrowserRouter>
+              <Routes>
+                {/* Área do Cliente B2C */}
+                <Route path="/app" element={<CustomerLayout />}>
+                  <Route index element={<CustomerHome />} />
+                  <Route path="agendar" element={<CustomerBooking />} />
+                  <Route path="checkout" element={<CustomerCheckout />} />
+                  <Route path="historico" element={<CustomerHistory />} />
+                  <Route path="notificacoes" element={<CustomerNotifications />} />
+                  <Route path="login" element={<Login />} />
+                </Route>
 
-              {/* Admin Public Routes */}
-              <Route path="/login" element={<Login />} />
-              
-              {/* Protected Area */}
-              <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<MainLayout />}>
-                <Route index element={<RootRedirect />} />
-                
-                {/* Main Modules */}
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="agenda" element={<Agenda />} />
-                <Route path="clientes" element={<Clientes />} />
-                
-                <Route path="equipe" element={<AdminRoute><Equipe /></AdminRoute>} />
-                <Route path="financeiro" element={<Financeiro />} />
-                <Route path="estoque" element={<AdminRoute><Estoque /></AdminRoute>} />
-                
-                <Route path="fidelidade" element={<Placeholder />} />
-                <Route path="configuracoes" element={<Configuracoes />} />
-                
-                {/* Fallback under protected layout */}
-                <Route path="*" element={<RootRedirect />} />
-              </Route>
-            </Route>
-            
-            {/* Global Fallback */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-          </BrowserRouter>
-        </ModalProvider>
-      </NotificationToastProvider>
+                {/* Login Admin/Barbeiro */}
+                <Route path="/login" element={<Login />} />
+
+                {/* Área Protegida (Admin + Barbeiro) */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/" element={<MainLayout />}>
+                    <Route index element={<RootRedirect />} />
+
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="agenda" element={<Agenda />} />
+                    <Route path="clientes" element={<Clientes />} />
+
+                    <Route path="equipe" element={<AdminRoute><Equipe /></AdminRoute>} />
+                    <Route path="financeiro" element={<Financeiro />} />
+                    <Route path="estoque" element={<AdminRoute><Estoque /></AdminRoute>} />
+
+                    <Route path="fidelidade" element={<Placeholder />} />
+                    <Route path="configuracoes" element={<Configuracoes />} />
+
+                    <Route path="*" element={<RootRedirect />} />
+                  </Route>
+                </Route>
+
+                {/* Fallback global */}
+                <Route path="*" element={<Navigate to="/login" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </ModalProvider>
+        </NotificationToastProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

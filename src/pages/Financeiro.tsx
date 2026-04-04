@@ -13,76 +13,112 @@ import { useModal } from '../contexts/ModalContext';
 import { useAuth } from '../contexts/AuthContext';
 
 const BarberFinanceiro = () => {
+  const servicosDoMes = [
+    { servico: 'Corte Fade', cliente: 'Afonso Silva', horario: 'Hoje, 09:30', total: 45.00, comissao: 50 },
+    { servico: 'Corte + Barba', cliente: 'Guilherme R.', horario: 'Ontem, 16:00', total: 75.00, comissao: 50 },
+    { servico: 'Barba Completa', cliente: 'Eduardo M.', horario: '02/Abr, 11:15', total: 35.00, comissao: 50 },
+    { servico: 'Degradê + Sobrancelha', cliente: 'Thiago P.', horario: '01/Abr, 14:00', total: 60.00, comissao: 50 },
+  ];
+
+  const totalBruto = servicosDoMes.reduce((acc, s) => acc + s.total, 0);
+  const totalComissao = servicosDoMes.reduce((acc, s) => acc + (s.total * s.comissao / 100), 0);
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 pt-8 pb-12">
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-white">Minhas Comissões</h1>
-        <p className="text-sm text-on-surface-variant">Extrato e fechamentos do período atual.</p>
+        <h1 className="text-3xl sm:text-4xl font-black text-white">Meu Financeiro</h1>
+        <p className="text-sm text-on-surface-variant mt-1">Valores cobrados pelo salão nos seus atendimentos. O pagamento da comissão é feito conforme acordo com o responsável.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Comissão Liberada */}
+      {/* Cards de Resumo */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-surface-container rounded-3xl p-6 glass-border flex flex-col justify-between relative overflow-hidden group">
           <div className="absolute -right-4 -top-8 w-32 h-32 bg-[#C8FF00]/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-700"></div>
           <div>
-            <div className="w-10 h-10 rounded-xl bg-[#C8FF00] flex items-center justify-center text-[#4f6700] mb-4 shadow-[0_0_20px_rgba(200,255,0,0.3)]">
-              <CircleDollarSign size={20} />
+            <div className="w-10 h-10 rounded-xl bg-[#C8FF00]/10 flex items-center justify-center text-[#C8FF00] mb-3">
+              <ReceiptText size={20} />
             </div>
-            <p className="text-on-surface-variant text-sm font-bold">Próximo Pagamento (05/Nov)</p>
+            <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Total Cobrado (Mês)</p>
           </div>
-          <div className="mt-4 relative z-10">
-            <h3 className="text-3xl font-extrabold text-white tracking-tight">R$ 1.240,50</h3>
-            <p className="text-[#C8FF00] text-[10px] font-bold mt-1 uppercase tracking-widest">+ Aprovado</p>
+          <div className="mt-3 relative z-10">
+            <h3 className="text-2xl font-extrabold text-white tracking-tight">R$ {totalBruto.toFixed(2).replace('.', ',')}</h3>
+            <p className="text-on-surface-variant text-[10px] font-bold mt-1">Valor que entrou no caixa do salão</p>
           </div>
         </div>
 
-        {/* Mes Passado */}
+        <div className="bg-surface-container rounded-3xl p-6 glass-border flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute -right-4 -top-8 w-32 h-32 bg-[#C8FF00]/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-700"></div>
+          <div>
+            <div className="w-10 h-10 rounded-xl bg-[#C8FF00] flex items-center justify-center text-[#4f6700] mb-3 shadow-[0_0_20px_rgba(200,255,0,0.3)]">
+              <CircleDollarSign size={20} />
+            </div>
+            <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Sua Comissão (50%)</p>
+          </div>
+          <div className="mt-3 relative z-10">
+            <h3 className="text-2xl font-extrabold text-white tracking-tight">R$ {totalComissao.toFixed(2).replace('.', ',')}</h3>
+            <p className="text-[#C8FF00] text-[10px] font-bold mt-1 uppercase tracking-widest">A receber do responsável</p>
+          </div>
+        </div>
+
         <div className="bg-surface-container-low rounded-3xl p-6 border border-white/5 flex flex-col justify-between">
           <div>
-            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-on-surface-variant mb-4">
+            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-on-surface-variant mb-3">
               <Wallet size={20} />
             </div>
-            <p className="text-on-surface-variant text-sm font-medium">Outubro (Fechado)</p>
+            <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Outubro (Fechado)</p>
           </div>
-          <div className="mt-4 opacity-50">
+          <div className="mt-3 opacity-60">
             <h3 className="text-2xl font-extrabold text-white tracking-tight">R$ 4.850,00</h3>
             <p className="text-white/50 text-[10px] font-bold mt-1 uppercase tracking-widest">Liquidado</p>
           </div>
         </div>
       </div>
 
-      <div className="bg-surface-container rounded-3xl p-6 sm:p-8 border border-white/5 mt-8">
-        <h2 className="text-lg font-bold text-white mb-6">Extrato de Serviços</h2>
+      {/* Banner informativo */}
+      <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
+        <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
+          <span className="text-blue-400 text-xs font-black">i</span>
+        </div>
+        <p className="text-xs text-blue-200/80 leading-relaxed">
+          Os valores abaixo são cobrados diretamente na conta do salão (via InfinitePay do responsável). O cálculo da sua comissão é exibido para sua transparência — entre em contato com o gestor para combinar a data de repasse.
+        </p>
+      </div>
+
+      {/* Extrato Detalhado */}
+      <div className="bg-surface-container rounded-3xl p-6 sm:p-8 border border-white/5">
+        <h2 className="text-lg font-bold text-white mb-6">Extrato de Atendimentos</h2>
         
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl border border-white/5">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-on-surface-variant">
-                <Scissors size={18} />
+        <div className="space-y-3">
+          {servicosDoMes.map((item, i) => (
+            <div key={i} className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl border border-white/5 hover:border-[#C8FF00]/10 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-on-surface-variant shrink-0">
+                  <Scissors size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">{item.servico}</h4>
+                  <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">{item.cliente} • {item.horario}</p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-white">Corte Fade</h4>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Afonso Silva • Hoje, 09:30</p>
+              <div className="text-right shrink-0">
+                <span className="text-sm font-black text-white block">R$ {item.total.toFixed(2).replace('.', ',')}</span>
+                <span className="text-[10px] text-[#C8FF00] font-bold uppercase">Sua parte: R$ {(item.total * item.comissao / 100).toFixed(2).replace('.', ',')}</span>
               </div>
             </div>
+          ))}
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <span className="text-xs text-on-surface-variant">Total: <strong className="text-white">{servicosDoMes.length} atendimentos</strong></span>
+          <div className="flex gap-4">
             <div className="text-right">
-              <span className="text-sm font-black text-white block">R$ 45,00</span>
-              <span className="text-[10px] text-[#C8FF00] font-bold uppercase">Sua parte: R$ 22,50</span>
+              <p className="text-[10px] text-on-surface-variant uppercase">Total Bruto Cobrado</p>
+              <p className="text-sm font-black text-white">R$ {totalBruto.toFixed(2).replace('.', ',')}</p>
             </div>
-          </div>
-          <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl border border-white/5">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-on-surface-variant">
-                <Scissors size={18} />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-white">Corte + Barba</h4>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Guilherme R. • Ontem, 16:00</p>
-              </div>
-            </div>
+            <div className="w-px bg-white/10"></div>
             <div className="text-right">
-              <span className="text-sm font-black text-white block">R$ 75,00</span>
-              <span className="text-[10px] text-[#C8FF00] font-bold uppercase">Sua parte: R$ 37,50</span>
+              <p className="text-[10px] text-[#C8FF00] uppercase">Comissão Devida</p>
+              <p className="text-sm font-black text-[#C8FF00]">R$ {totalComissao.toFixed(2).replace('.', ',')}</p>
             </div>
           </div>
         </div>

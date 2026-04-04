@@ -20,8 +20,6 @@ const Configuracoes = () => {
   const { user } = useAuth();
   const isBarber = user?.user_metadata?.role === 'barbeiro';
   
-  const [infiniteKey, setInfiniteKey] = useState('');
-  const [isInfiniteSaved, setIsInfiniteSaved] = useState(false);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
   useEffect(() => {
@@ -31,13 +29,6 @@ const Configuracoes = () => {
     }
   }, []);
 
-  const handleSaveInfinite = () => {
-    if (infiniteKey.length > 5) {
-      setIsInfiniteSaved(true);
-      setTimeout(() => setIsInfiniteSaved(false), 3000);
-    }
-  };
-
   const handleConnectGoogle = () => {
     if (isGoogleConnected) {
       setIsGoogleConnected(false);
@@ -45,31 +36,24 @@ const Configuracoes = () => {
     }
     const baseUrl = window.location.origin + window.location.pathname;
     const redirectUrl = encodeURIComponent(baseUrl + "?google_auth=success");
-    // Redireciona para o Google Chooser real
     window.location.href = `https://accounts.google.com/AccountChooser?continue=${redirectUrl}`;
   };
 
   if (isBarber) {
     return (
       <div className="pt-8 pb-12 animate-in fade-in duration-300">
-        {/* Page Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-10 gap-4">
           <div>
             <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">Sua Conta</h1>
-            <p className="text-on-surface-variant font-medium">Configure suas integrações e recebimentos pessoais.</p>
+            <p className="text-on-surface-variant font-medium">Configure suas integrações e preferências pessoais.</p>
           </div>
-          <button className="bg-[#C8FF00] text-[#4f6700] px-6 py-3 rounded-xl font-extrabold flex items-center gap-2 hover:scale-[1.02] transition-transform shadow-[0px_0px_20px_rgba(200,255,0,0.2)]">
-            <Save size={20} className="font-bold" />
-            Salvar Alterações
-          </button>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar Nav */}
           <div className="w-full lg:w-64 space-y-2">
             <button className="w-full flex items-center gap-3 px-4 py-3 bg-[#C8FF00]/10 text-[#C8FF00] rounded-xl font-bold transition-all border border-[#C8FF00]/20 text-left">
               <SmartphoneNfc size={20} />
-              <span>Integrações API</span>
+              <span>Integrações</span>
             </button>
             <button className="w-full flex items-center gap-3 px-4 py-3 text-[#A0A0A0] hover:text-white hover:bg-white/5 rounded-xl transition-all text-left">
               <BellRing size={20} />
@@ -77,41 +61,28 @@ const Configuracoes = () => {
             </button>
           </div>
 
-          {/* Content Area */}
           <div className="flex-1 space-y-8">
-            
-            {/* InfinitePay Integration */}
-            <div className="glass-card rounded-[1.5rem] p-8 border border-[#C8FF00]/20 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-[#C8FF00]/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
-              
+
+            {/* Card info: recebimento centralizado no admin */}
+            <div className="glass-card rounded-[1.5rem] p-8 border border-white/5 relative overflow-hidden">
               <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-3">
-                <SmartphoneNfc className="text-[#C8FF00]" size={28} />
-                Recebimento Direto (InfinitePay)
+                <SmartphoneNfc className="text-on-surface-variant" size={28} />
+                Recebimento de Pagamentos
               </h2>
               <p className="text-sm text-on-surface-variant mb-6 max-w-2xl">
-                Conecte a sua própria chave da InfinitePay. Ao fazer isso, o valor cobrado do cliente no sistema "Tap to Pay" cairá 100% na sua conta bancária. Acertos de comissão com o salão deverão ser acordados separadamente.
+                Todos os pagamentos são processados na conta da barbearia. O valor cobrado em cada atendimento seu aparece na aba <strong className="text-white">Meu Financeiro</strong>, junto ao cálculo da comissão devida.
               </p>
 
               <div className="bg-surface-container-lowest p-6 rounded-2xl border border-white/5">
-                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3 block">Chave de Produção (API Key)</label>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <input 
-                    type="password" 
-                    value={infiniteKey}
-                    onChange={(e) => setInfiniteKey(e.target.value)}
-                    placeholder="sk_live_..." 
-                    className="flex-1 px-4 py-3 bg-surface-container border border-white/10 rounded-xl focus:outline-none focus:border-[#C8FF00] text-white transition-colors" 
-                  />
-                  <button 
-                    onClick={handleSaveInfinite}
-                    className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    {isInfiniteSaved ? <CheckCircle2 className="text-[#C8FF00]" size={20} /> : 'Conectar Chave'}
-                  </button>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[#C8FF00]/10 flex items-center justify-center text-[#C8FF00] shrink-0">
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-sm">Conta do Salão Ativa</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Os valores dos seus atendimentos são registrados automaticamente e ficam visíveis no seu extrato pessoal.</p>
+                  </div>
                 </div>
-                {isInfiniteSaved && (
-                  <p className="text-xs text-[#C8FF00] font-bold mt-3">Chave sincronizada com sucesso para recebimentos!</p>
-                )}
               </div>
             </div>
 
@@ -127,25 +98,39 @@ const Configuracoes = () => {
 
               <div className="flex flex-col sm:flex-row items-center justify-between p-6 bg-surface-container border border-white/5 rounded-2xl">
                 <div className="flex items-center gap-4 mb-4 sm:mb-0">
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-2">
-                    {/* SVG do Google Logo */}
-                    <svg viewBox="0 0 48 48" className="w-full h-full"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-2 shrink-0">
+                    <svg viewBox="0 0 48 48" className="w-full h-full">
+                      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                    </svg>
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white">Status de Sincronização</h4>
                     {isGoogleConnected ? (
-                      <p className="text-xs text-[#C8FF00] font-bold">Conectado (barbeiro@gmail.com)</p>
+                      <p className="text-xs text-[#C8FF00] font-bold">Conectado ({user?.email ?? 'conta google'})</p>
                     ) : (
-                      <p className="text-xs text-on-surface-variant">Não conectado</p>
+                      <p className="text-xs text-on-surface-variant">Não conectado — clique em "Conectar Google" para escolher a conta</p>
                     )}
                   </div>
                 </div>
                 
                 <button 
                   onClick={handleConnectGoogle}
-                  className={`px-6 py-3 font-bold rounded-xl transition-colors w-full sm:w-auto ${isGoogleConnected ? 'bg-surface-container-highest text-white hover:bg-error/20 hover:text-error' : 'bg-white text-black hover:bg-gray-200'}`}
+                  className={`px-6 py-3 font-bold rounded-xl transition-colors w-full sm:w-auto flex items-center justify-center gap-2 ${isGoogleConnected ? 'bg-surface-container-highest text-white hover:bg-error/20 hover:text-error' : 'bg-white text-black hover:bg-gray-200'}`}
                 >
-                  {isGoogleConnected ? 'Desconectar' : 'Conectar Google'}
+                  {isGoogleConnected ? 'Desconectar' : (
+                    <>
+                      <svg viewBox="0 0 24 24" className="w-4 h-4">
+                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.36.61 4.61 1.61l3.43-3.43C17.95 1.88 15.14 1 12 1 7.59 1 3.76 3.36 1.61 6.84l3.99 3.1C6.63 7.07 9.12 4.75 12 4.75z"/>
+                        <path fill="#4285F4" d="M23.5 12.27c0-.79-.07-1.55-.19-2.27H12v4.51h6.47c-.29 1.48-1.13 2.74-2.39 3.59l3.86 3c2.26-2.09 3.56-5.17 3.56-8.83z"/>
+                        <path fill="#FBBC05" d="M5.26 14.29A7.23 7.23 0 0 1 4.73 12c0-.8.14-1.57.38-2.29L1.12 6.61A11.92 11.92 0 0 0 0 12c0 1.92.45 3.73 1.25 5.34l4.01-3.05z"/>
+                        <path fill="#34A853" d="M12 23c3.24 0 5.95-1.07 7.93-2.91l-3.86-3c-1.07.72-2.44 1.14-4.07 1.14-3.12 0-5.77-2.11-6.72-4.94l-3.99 3.1C3.76 20.64 7.59 23 12 23z"/>
+                      </svg>
+                      Conectar Google
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -156,23 +141,21 @@ const Configuracoes = () => {
     );
   }
 
-  // --- REGRAS DO ADMIN ---
+  // --- ADMIN VIEW ---
   return (
     <div className="pt-8 pb-12 animate-in fade-in duration-300">
-      {/* Page Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-10 gap-4">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">Configurações</h1>
           <p className="text-on-surface-variant font-medium">Ajuste as preferências gerais, equipe e personalização da sua barbearia.</p>
         </div>
-        <button className="bg-[#C8FF00] text-[#4f6700] px-6 py-3 rounded-xl font-extrabold flex items-center gap-2 hover:scale-[1.02] transition-transform shadow-[0px_0px_20px_rgba(200,255,0,0.2)]">
+        <button onClick={() => alert('Configurações salvas!')} className="bg-[#C8FF00] text-[#4f6700] px-6 py-3 rounded-xl font-extrabold flex items-center gap-2 hover:scale-[1.02] transition-transform shadow-[0px_0px_20px_rgba(200,255,0,0.2)]">
           <Save size={20} className="font-bold" />
           Salvar Alterações
         </button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Sidebar Nav */}
         <div className="w-full lg:w-64 space-y-2">
           <button className="w-full flex items-center gap-3 px-4 py-3 bg-[#C8FF00]/10 text-[#C8FF00] rounded-xl font-bold transition-all border border-[#C8FF00]/20 text-left">
             <Store size={20} />
@@ -205,9 +188,7 @@ const Configuracoes = () => {
           </button>
         </div>
 
-        {/* Content Area */}
         <div className="flex-1 space-y-8">
-          {/* Section: Loja */}
           <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <Store className="text-[#C8FF00]" size={24} />
@@ -221,8 +202,6 @@ const Configuracoes = () => {
                     <Settings size={24} className="text-white mb-2" />
                     <span className="text-xs text-white font-bold">Alterar</span>
                   </div>
-                  <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7gFdlxwRb4_gzh7ppv8fv4MoXeZdR_1iL4LPOmNXcgdxvHeVZ5876wyIZWtWaSrFUVwJ0SB7lFK3B3wnl-_JdpbTAlluE29E-Hl-p1BEhBRWIDQwifzuCiAf_hvkMFkHtcVR_sUOgxYxqqHAGGwZYWEXoqiJNpvmDRr8QfUk2e2OFFi4DRWjzHzmR5dVyj8umSc4odDiY6-6t6S9iYAZd_9l7uGCoR_1DvqWVTdXfm4S_czkMTurGaRRA_Zn5f_Pzj9LmgsDeWUqV" alt="Logo" className="w-full h-full object-cover opacity-50 blur-sm" />
-                  {/* Placeholder for Logo */}
                   <span className="absolute text-3xl font-black text-[#C8FF00]">BP</span>
                 </div>
                 <button className="text-xs font-bold text-[#C8FF00] hover:underline">Remover Logotipo</button>
@@ -255,7 +234,7 @@ const Configuracoes = () => {
             </div>
           </div>
 
-          {/* Section: Endereço */}
+          {/* Localização */}
           <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <Globe className="text-[#C8FF00]" size={24} />

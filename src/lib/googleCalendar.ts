@@ -64,6 +64,30 @@ export function createCalendarEvent(appointment: AppointmentEvent): boolean {
   return true;
 }
 
+/**
+ * Opens a pre-filled test event in Google Calendar (tomorrow, 10h–11h).
+ * Useful to verify the integration is working.
+ */
+export function createTestEvent(): void {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(10, 0, 0, 0);
+
+  const end = new Date(tomorrow);
+  end.setHours(11, 0, 0, 0);
+
+  const url = buildCalendarUrl({
+    title:         'BarberPro — Teste de Integração',
+    clientName:    'Teste',
+    barberName:    'BarberPro',
+    service:       'Verificação de integração',
+    startDateTime: tomorrow.toISOString(),
+    endDateTime:   end.toISOString(),
+  });
+
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 // ─── Legacy stubs (keep for import compatibility) ─────────────────────────────
 
 export function isConnected(): boolean { return true; }

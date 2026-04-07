@@ -7,7 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { useBarbershopSettings } from '../hooks/useBarbershopSettings';
 import { useNotificationToast } from '../contexts/NotificationToastContext';
-import { isAutoOpenEnabled, setAutoOpen } from '../lib/googleCalendar';
+import { isAutoOpenEnabled, setAutoOpen, createTestEvent } from '../lib/googleCalendar';
+import { getCachedHandle, setCachedHandle, openInfinitePay } from '../lib/infinitePay';
 
 // ─── Day labels ───────────────────────────────────────────────────────────────
 const DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -129,6 +130,10 @@ const AdminView = () => {
   // Google Calendar auto-open toggle
   const [syncEnabled, setSyncEnabledLocal] = useState(isAutoOpenEnabled());
 
+  // InfinitePay handle
+  const [ipayHandle, setIpayHandle] = useState(getCachedHandle());
+  const [savingHandle, setSavingHandle] = useState(false);
+
   // Populate form when barbershop data loads
   useEffect(() => {
     if (barbershop) {
@@ -145,6 +150,12 @@ const AdminView = () => {
         state: barbershop.state ?? '',
       });
       if (barbershop.logo) setLogoPreview(barbershop.logo);
+      // Sync InfinitePay handle from DB settings
+      const settings = barbershop.settings as Record<string, string> | null;
+      if (settings?.infinitePayHandle) {
+        setIpayHandle(settings.infinitePayHandle);
+        setCachedHandle(settings.infinitePayHandle);
+      }
     }
   }, [barbershop]);
 
@@ -173,6 +184,25 @@ const AdminView = () => {
   };
 
   const handleToggleSync = (enabled: boolean) => { setAutoOpen(enabled); setSyncEnabledLocal(enabled); };
+
+  const handleSaveHandle = async () => {
+    setSavingHandle(true);
+    setCachedHandle(ipayHandle.trim());
+    // Also persist to Barbershop.settings if we have barbershopId
+    if (barbershop?.id) {
+      const settings = { ...(barbershop.settings as object ?? {}), infinitePayHandle: ipayHandle.trim() };
+      await saveBarbershop({ settings } as Parameters<typeof saveBarbershop>[0]);
+    }
+    setSavingHandle(false);
+    showToast({ type: 'success', title: 'Handle salvo!', message: 'InfinitePay configurado com sucesso.' });
+  };
+
+  const handleTestInfinitePay = () => {
+    openInfinitePay(
+      { orderId: `TEST-${Date.now()}`, amountCents: 100, paymentMethod: 'credit', installments: 1, handle: ipayHandle || undefined },
+      { amountCents: 100, paymentMethod: 'CREDIT_CARD', installments: 1, description: 'Teste de integração', clientId: null, barbershopId: barbershop?.id ?? null },
+    );
+  };
 
   const TABS: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'perfil',       label: 'Perfil da Loja',      icon: <Store size={18} /> },
@@ -349,7 +379,7 @@ const AdminView = () => {
                 <div className="flex items-center gap-2 mb-2">
                   <CalendarDays className="text-[#C8FF00]" size={24} />
                   <h2 className="text-xl font-bold text-white">Google Calendar</h2>
-                  <span className="text-xs font-bold px-3 py-1 bg-[#C8FF00]/10 text-[#C8FF00] rounded-full border border-[#C8FF00]/20 ml-auto">Pronto para usar</span>
+                  <span className="text-xs font-bold px-3 py-1 bg-[#C8FF00]/10 text-[#C8FF00] rounded-full border border-[#C8FF00]/20 ml-auto">✓ Ativo</span>
                 </div>
                 <p className="text-sm text-on-surface-variant mb-6">
                   Após cada agendamento, o Google Calendar abre automaticamente com o evento preenchido — basta clicar em <strong className="text-white">Salvar</strong>. Sem login extra, sem configuração.
@@ -361,9 +391,12 @@ const AdminView = () => {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-bold text-white">Abre no Google Calendar da sua conta</p>
-                    <p className="text-xs text-on-surface-variant mt-0.5">Já conectado à conta Google do navegador</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Já conectado à conta Google do navegador — sem senha adicional</p>
                   </div>
-                  <span className="text-[#C8FF00] text-xs font-bold">✓ Ativo</span>
+                  <button onClick={createTestEvent}
+                    className="shrink-0 text-xs font-bold px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg hover:bg-white/10 transition-colors">
+                    Testar
+                  </button>
                 </div>
 
                 <div className="p-4 bg-[#C8FF00]/5 border border-[#C8FF00]/20 rounded-xl flex items-center justify-between">
@@ -380,22 +413,59 @@ const AdminView = () => {
 
               {/* InfinitePay */}
               <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
-                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                  <Zap className="text-[#C8FF00]" size={24} /> InfinitePay (Tap to Pay)
-                </h2>
-                <p className="text-sm text-on-surface-variant mb-5">
-                  Receba pagamentos por aproximação (NFC) diretamente pelo celular, sem maquininha.
-                </p>
-                <div className="p-5 bg-surface-container border border-white/5 rounded-2xl flex items-center gap-4">
-                  <div className="w-11 h-11 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shrink-0">
-                    <SmartphoneNfc size={22} className="text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">InfinitePay</p>
-                    <p className="text-xs text-on-surface-variant mt-0.5">Instale o app InfinitePay no celular para usar NFC. O sistema PDV abre o app automaticamente.</p>
-                  </div>
-                  <span className="ml-auto text-xs font-bold px-3 py-1 bg-green-500/10 text-green-400 rounded-full border border-green-500/20 shrink-0">Ativo</span>
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="text-[#C8FF00]" size={24} />
+                  <h2 className="text-xl font-bold text-white">InfinitePay (Tap to Pay)</h2>
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full border ml-auto ${ipayHandle ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
+                    {ipayHandle ? '✓ Configurado' : '⚠ Não configurado'}
+                  </span>
                 </div>
+                <p className="text-sm text-on-surface-variant mb-6">
+                  Receba por aproximação (NFC) via InfiniteTap. Configure seu identificador para que o valor e as parcelas sejam enviados automaticamente ao app.
+                </p>
+
+                {/* Handle input */}
+                <div className="mb-5">
+                  <label className="block text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-2">
+                    Identificador InfinitePay (handle)
+                  </label>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={ipayHandle}
+                      onChange={(e) => setIpayHandle(e.target.value)}
+                      placeholder="ex: minha_barbearia"
+                      className="flex-1 bg-surface-container border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-on-surface-variant focus:outline-none focus:border-[#C8FF00]/40"
+                    />
+                    <button onClick={handleSaveHandle} disabled={savingHandle}
+                      className="px-5 py-3 bg-[#C8FF00] text-[#4f6700] font-black rounded-xl hover:bg-[#b3e600] transition-colors disabled:opacity-60 flex items-center gap-2 text-sm shrink-0">
+                      {savingHandle ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      Salvar
+                    </button>
+                  </div>
+                  <p className="text-xs text-on-surface-variant mt-2">
+                    Encontre no app InfinitePay → <strong className="text-white">Perfil → Nome de usuário</strong>
+                  </p>
+                </div>
+
+                {/* App info */}
+                <div className="p-4 bg-surface-container border border-white/5 rounded-xl flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shrink-0">
+                    <SmartphoneNfc size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-white">Como funciona</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">No PDV → selecione Cartão → "Cobrar com InfinitePay" → app abre com valor e parcelas prontos → cliente aproxima o cartão</p>
+                  </div>
+                </div>
+
+                {/* Test button */}
+                {ipayHandle && (
+                  <button onClick={handleTestInfinitePay}
+                    className="w-full py-3 border border-[#C8FF00]/20 bg-[#C8FF00]/5 text-[#C8FF00] font-bold rounded-xl hover:bg-[#C8FF00]/10 transition-colors text-sm flex items-center justify-center gap-2">
+                    <SmartphoneNfc size={15} /> Testar integração (R$1,00)
+                  </button>
+                )}
               </div>
             </div>
           )}

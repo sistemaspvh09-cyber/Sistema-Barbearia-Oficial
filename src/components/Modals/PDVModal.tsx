@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, CreditCard, Smartphone, DollarSign, Wifi, Check, Share2, RotateCcw, ChevronLeft, Loader2, Banknote } from 'lucide-react';
+import { X, CreditCard, Smartphone, DollarSign, Wifi, Check, Share2, RotateCcw, ChevronLeft, Loader2, Banknote, ExternalLink } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useModal } from '../../contexts/ModalContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { createTransaction, PAYMENT_METHOD_LABEL, type PaymentMethod } from '../../services/transactionService';
 import { useNotificationToast } from '../../contexts/NotificationToastContext';
+import { openInfinitePay, getCachedHandle } from '../../lib/infinitePay';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -159,6 +160,7 @@ const PDVModal = () => {
 
   // Step 3
   const [cashReceived, setCashReceived] = useState(0);
+  const [installments, setInstallments] = useState(1);
   const [processing, setProcessing] = useState(false);
 
   // Step 4
@@ -206,6 +208,7 @@ const PDVModal = () => {
     setSelectedClientId('');
     setSelectedMethod(null);
     setCashReceived(0);
+    setInstallments(1);
     setProcessing(false);
     setClientSearch('');
   };
@@ -358,41 +361,102 @@ const PDVModal = () => {
           {step === 3 && (
             <div className={`p-6 ${slideClass}`}>
 
-              {/* Cartão */}
-              {(selectedMethod === 'CREDIT_CARD' || selectedMethod === 'DEBIT_CARD') && (
-                <div className="text-center py-4">
-                  {/* Valor em destaque */}
-                  <div className="mb-6 p-5 bg-[#C8FF00]/5 border border-[#C8FF00]/20 rounded-2xl">
-                    <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-1">Valor a cobrar</p>
-                    <p className="text-4xl font-black text-[#C8FF00]">{formatCurrency(amountCents)}</p>
-                    <p className="text-sm text-on-surface-variant mt-1">{selectedMethod === 'CREDIT_CARD' ? 'Cartão de Crédito' : 'Cartão de Débito'}</p>
-                  </div>
+              {/* Cartão — InfinitePay deep link real */}
+              {(selectedMethod === 'CREDIT_CARD' || selectedMethod === 'DEBIT_CARD') && (() => {
+                const isCredit   = selectedMethod === 'CREDIT_CARD';
+                const handle     = getCachedHandle();
+                const maxInstall = isCredit ? Math.min(12, Math.floor(amountCents / 100)) : 1;
+                const validInst  = Math.min(installments, maxInstall);
+                const perInstall = amountCents / 100 / validInst;
+                const hasHandle  = Boolean(handle);
 
-                  {/* NFC animation */}
-                  <div className="relative flex items-center justify-center mb-6">
-                    <div className="w-24 h-24 rounded-full bg-[#C8FF00]/5 flex items-center justify-center">
-                      <div className="w-16 h-16 rounded-full bg-[#C8FF00]/10 flex items-center justify-center"
-                        style={{ animation: 'nfcPulse 1.8s ease-in-out infinite' }}>
-                        <Wifi size={32} className="text-[#C8FF00] rotate-90" />
-                      </div>
+                const handleOpen = () => {
+                  openInfinitePay(
+                    {
+                      orderId:       transactionId,
+                      amountCents,
+                      paymentMethod: isCredit ? 'credit' : 'debit',
+                      installments:  validInst,
+                      handle:        handle || undefined,
+                    },
+                    {
+                      amountCents,
+                      paymentMethod: selectedMethod,
+                      installments:  validInst,
+                      description:   description || 'Serviço',
+                      clientId:      selectedClientId || null,
+                      barbershopId,
+                    },
+                  );
+                };
+
+                return (
+                  <div className="py-4">
+                    {/* Valor */}
+                    <div className="mb-5 p-5 bg-[#C8FF00]/5 border border-[#C8FF00]/20 rounded-2xl text-center">
+                      <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-1">Valor a cobrar</p>
+                      <p className="text-4xl font-black text-[#C8FF00]">{formatCurrency(amountCents)}</p>
+                      <p className="text-sm text-on-surface-variant mt-1">{isCredit ? 'Cartão de Crédito' : 'Cartão de Débito'}</p>
                     </div>
-                    {[0, 1, 2].map((i) => (
-                      <div key={i} className="absolute rounded-full border border-[#C8FF00]/20"
-                        style={{ width: `${100 + i * 36}px`, height: `${100 + i * 36}px`, animation: `nfcPulse ${1.4 + i * 0.3}s ${i * 0.2}s ease-in-out infinite` }} />
-                    ))}
+
+                    {/* Parcelas (apenas crédito com maxInstall > 1) */}
+                    {isCredit && maxInstall > 1 && (
+                      <div className="mb-5">
+                        <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-3">Parcelamento</p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {Array.from({ length: maxInstall }, (_, i) => i + 1).map((n) => (
+                            <button key={n} onClick={() => setInstallments(n)}
+                              className={`py-2.5 rounded-xl text-sm font-bold border transition-all ${installments === n ? 'bg-[#C8FF00] text-[#4f6700] border-[#C8FF00]' : 'border-white/10 text-on-surface-variant hover:border-white/30'}`}>
+                              {n}x
+                              {n > 1 && <span className="block text-[9px] font-normal opacity-70">{formatCurrency(amountCents / 100 / n)}</span>}
+                            </button>
+                          ))}
+                        </div>
+                        {installments > 1 && (
+                          <p className="text-xs text-on-surface-variant mt-2 text-center">
+                            {installments}x de <strong className="text-white">{formatCurrency(perInstall)}</strong> sem juros
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* NFC animation */}
+                    <div className="relative flex items-center justify-center mb-5">
+                      <div className="w-20 h-20 rounded-full bg-[#C8FF00]/5 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-full bg-[#C8FF00]/10 flex items-center justify-center"
+                          style={{ animation: 'nfcPulse 1.8s ease-in-out infinite' }}>
+                          <Wifi size={28} className="text-[#C8FF00] rotate-90" />
+                        </div>
+                      </div>
+                      {[0, 1].map((i) => (
+                        <div key={i} className="absolute rounded-full border border-[#C8FF00]/20"
+                          style={{ width: `${90 + i * 34}px`, height: `${90 + i * 34}px`, animation: `nfcPulse ${1.5 + i * 0.3}s ${i * 0.2}s ease-in-out infinite` }} />
+                      ))}
+                    </div>
+
+                    {/* Warning if handle not configured */}
+                    {!hasHandle && (
+                      <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                        <p className="text-xs text-yellow-400 font-bold">⚠ Handle InfinitePay não configurado</p>
+                        <p className="text-xs text-on-surface-variant mt-0.5">Configure em Configurações → Integrações para pré-preencher o valor automaticamente.</p>
+                      </div>
+                    )}
+
+                    {/* Primary CTA */}
+                    <button onClick={handleOpen}
+                      className="w-full py-4 bg-[#C8FF00] text-[#4f6700] font-black rounded-xl mb-3 hover:bg-[#b3e600] transition-colors shadow-[0_0_20px_rgba(200,255,0,0.25)] flex items-center justify-center gap-2">
+                      <ExternalLink size={18} /> Cobrar com InfinitePay
+                    </button>
+
+                    {/* Manual fallback */}
+                    <button onClick={confirmPayment} disabled={processing}
+                      className="w-full py-3 border border-white/10 text-on-surface-variant font-bold rounded-xl hover:bg-white/5 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm">
+                      {processing ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                      {processing ? 'Confirmando...' : 'Confirmar Manualmente (sem app)'}
+                    </button>
                   </div>
-
-                  {/* Instructions */}
-                  <p className="text-white font-bold mb-1">Abra o app InfinitePay no celular</p>
-                  <p className="text-xs text-on-surface-variant mb-6">Selecione <strong className="text-white">InfiniteTap</strong>, insira o valor acima e aproxime o cartão</p>
-
-                  <button onClick={confirmPayment} disabled={processing}
-                    className="w-full py-4 bg-[#C8FF00] text-[#4f6700] font-black rounded-xl hover:bg-[#b3e600] transition-colors shadow-[0_0_20px_rgba(200,255,0,0.25)] disabled:opacity-50 flex items-center justify-center gap-2">
-                    {processing ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-                    {processing ? 'Confirmando...' : 'Confirmar Pagamento'}
-                  </button>
-                </div>
-              )}
+                );
+              })()}
 
               {/* PIX */}
               {selectedMethod === 'PIX' && (

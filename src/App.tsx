@@ -14,6 +14,7 @@ import Financeiro from './pages/Financeiro';
 import Agenda from './pages/Agenda';
 import Estoque from './pages/Estoque';
 import Configuracoes from './pages/Configuracoes';
+import PaymentResult from './pages/PaymentResult';
 import Login from './pages/Login';
 import ProtectedRoute from './components/Layout/ProtectedRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -54,6 +55,9 @@ function App() {
                   <Route path="notificacoes" element={<CustomerNotifications />} />
                   <Route path="login" element={<Login />} />
                 </Route>
+
+                {/* InfinitePay payment callback — public, no auth required */}
+                <Route path="/payment-result" element={<PaymentResult />} />
 
                 {/* Login Admin/Barbeiro */}
                 <Route path="/login" element={<Login />} />

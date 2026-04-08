@@ -316,9 +316,25 @@ create policy "staff can manage own barbershop" on public."Barbershop"
 for all using ("id" = public.current_barbershop_id())
 with check ("id" = public.current_barbershop_id());
 
+drop policy if exists "setup user can create first barbershop" on public."Barbershop";
+create policy "setup user can create first barbershop" on public."Barbershop"
+for insert with check (
+  exists (
+    select 1
+    from public."User" internal_user
+    where internal_user."authId" = auth.uid()
+      and internal_user."barbershopId" is null
+      and internal_user."role" in ('admin', 'barbeiro')
+  )
+);
+
 drop policy if exists "users can read own row" on public."User";
 create policy "users can read own row" on public."User"
 for select using ("authId" = auth.uid());
+
+drop policy if exists "users can insert own row" on public."User";
+create policy "users can insert own row" on public."User"
+for insert with check ("authId" = auth.uid());
 
 drop policy if exists "staff can read internal users in barbershop" on public."User";
 create policy "staff can read internal users in barbershop" on public."User"
@@ -366,6 +382,10 @@ with check ("barbershopId" = public.current_barbershop_id());
 drop policy if exists "client can read own profile" on public."Client";
 create policy "client can read own profile" on public."Client"
 for select using ("userId" = public.current_internal_user_id());
+
+drop policy if exists "client can create own profile" on public."Client";
+create policy "client can create own profile" on public."Client"
+for insert with check ("userId" = public.current_internal_user_id());
 
 drop policy if exists "public can read active services" on public."Service";
 create policy "public can read active services" on public."Service"

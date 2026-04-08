@@ -2,11 +2,17 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, CreditCard, Smartphone, DollarSign, Wifi, Check, Share2, RotateCcw, ChevronLeft, Loader2, Banknote, ExternalLink } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useModal } from '../../contexts/ModalContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { createTransaction, PAYMENT_METHOD_LABEL, type PaymentMethod } from '../../services/transactionService';
+import {
+  createTransaction,
+  PAYMENT_METHOD_LABEL,
+  upsertTransactionByExternalOrderId,
+  type PaymentMethod,
+} from '../../services/transactionService';
 import { useNotificationToast } from '../../contexts/NotificationToastContext';
 import { openInfinitePay, getCachedHandle } from '../../lib/infinitePay';
+import { useBarbershopContext } from '../../contexts/BarbershopContext';
+import { emitAppDataChanged } from '../../lib/events';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -139,7 +145,7 @@ const PixTimer = ({ onExpire }: { onExpire: () => void }) => {
 
 const PDVModal = () => {
   const { activeModal, closeModal } = useModal();
-  const { user } = useAuth();
+  const { barbershop, barberProfile } = useBarbershopContext();
   const { showToast } = useNotificationToast();
 
   const [barbershopId, setBarbershopId] = useState<string | null>(null);
@@ -170,23 +176,42 @@ const PDVModal = () => {
 
   // Load barbershopId + clients
   useEffect(() => {
-    if (!user || activeModal !== 'PDV') return;
-    supabase.from('User').select('barbershopId').eq('authId', user.id).single().then(({ data }) => {
-      if (!data?.barbershopId) return;
-      const bsId = data.barbershopId as string;
-      setBarbershopId(bsId);
-      supabase.from('Client').select('id, userId').eq('barbershopId', bsId).eq('isActive', true).limit(100).then(async ({ data: cls }) => {
-        if (!cls?.length) return;
-        const { data: users } = await supabase.from('User').select('id, name, phone').in('id', cls.map((c: { userId: string }) => c.userId));
-        if (users) {
-          setClients(cls.map((c: { id: string; userId: string }) => {
-            const u = (users as { id: string; name: string; phone: string | null }[]).find((u) => u.id === c.userId);
-            return { id: c.id, name: u?.name ?? 'Cliente', phone: u?.phone ?? null };
-          }));
+    if (!barbershop?.id || activeModal !== 'PDV') return;
+
+    setBarbershopId(barbershop.id);
+
+    supabase
+      .from('Client')
+      .select('id, userId, name, phone')
+      .eq('barbershopId', barbershop.id)
+      .eq('isActive', true)
+      .limit(100)
+      .then(async ({ data: cls }) => {
+        if (!cls?.length) {
+          setClients([]);
+          return;
         }
+
+        const linkedUserIds = cls
+          .map((client) => client.userId)
+          .filter((userId): userId is string => Boolean(userId));
+
+        const { data: users } = linkedUserIds.length
+          ? await supabase.from('User').select('id, name, phone').in('id', linkedUserIds)
+          : { data: [] as { id: string; name: string; phone: string | null }[] };
+
+        setClients(
+          cls.map((client) => {
+            const linkedUser = (users ?? []).find((candidate) => candidate.id === client.userId);
+            return {
+              id: client.id as string,
+              name: (client.name as string | null) ?? linkedUser?.name ?? 'Cliente',
+              phone: (client.phone as string | null) ?? linkedUser?.phone ?? null,
+            };
+          }),
+        );
       });
-    });
-  }, [user, activeModal]);
+  }, [activeModal, barbershop?.id]);
 
   useEffect(() => {
     if (step === 4) {
@@ -219,19 +244,24 @@ const PDVModal = () => {
     try {
       await createTransaction({
         barbershopId,
+        clientId: selectedClientId || null,
+        barberId: barberProfile?.id ?? null,
         type: 'INCOME',
         amount: amountCents / 100,
         description: description || 'Serviço',
         category: 'servico',
         paymentMethod: selectedMethod,
+        status: 'COMPLETED',
+        externalOrderId: selectedMethod === 'CREDIT_CARD' || selectedMethod === 'DEBIT_CARD' ? transactionId : null,
       });
+      emitAppDataChanged('transaction-created');
       goTo(4);
     } catch {
       showToast({ type: 'error', title: 'Erro ao registrar pagamento', message: 'Tente novamente.' });
     } finally {
       setProcessing(false);
     }
-  }, [barbershopId, selectedMethod, amountCents, description, goTo, showToast]);
+  }, [amountCents, barberProfile?.id, barbershopId, description, goTo, selectedClientId, selectedMethod, showToast, transactionId]);
 
   if (activeModal !== 'PDV') return null;
 
@@ -370,24 +400,55 @@ const PDVModal = () => {
                 const perInstall = amountCents / 100 / validInst;
                 const hasHandle  = Boolean(handle);
 
-                const handleOpen = () => {
-                  openInfinitePay(
-                    {
-                      orderId:       transactionId,
-                      amountCents,
-                      paymentMethod: isCredit ? 'credit' : 'debit',
-                      installments:  validInst,
-                      handle:        handle || undefined,
-                    },
-                    {
-                      amountCents,
+                const handleOpen = async () => {
+                  try {
+                    setProcessing(true);
+                    await upsertTransactionByExternalOrderId({
+                      barbershopId: barbershopId ?? '',
+                      clientId: selectedClientId || null,
+                      barberId: barberProfile?.id ?? null,
+                      type: 'INCOME',
+                      amount: amountCents / 100,
+                      description: description || 'Serviço',
+                      category: 'servico',
                       paymentMethod: selectedMethod,
-                      installments:  validInst,
-                      description:   description || 'Serviço',
-                      clientId:      selectedClientId || null,
-                      barbershopId,
-                    },
-                  );
+                      status: 'PENDING',
+                      gateway: 'infinitepay',
+                      externalOrderId: transactionId,
+                      metadata: {
+                        installments: validInst,
+                        amountCents,
+                        stage: 'deeplink_opened',
+                      },
+                    });
+                    emitAppDataChanged('transaction-pending');
+
+                    openInfinitePay(
+                      {
+                        orderId: transactionId,
+                        amountCents,
+                        paymentMethod: isCredit ? 'credit' : 'debit',
+                        installments: validInst,
+                        handle: handle || undefined,
+                      },
+                      {
+                        amountCents,
+                        paymentMethod: selectedMethod,
+                        installments: validInst,
+                        description: description || 'Serviço',
+                        clientId: selectedClientId || null,
+                        barbershopId,
+                      },
+                    );
+                  } catch {
+                    showToast({
+                      type: 'error',
+                      title: 'Erro ao preparar cobrança',
+                      message: 'Nao foi possivel registrar a transação antes de abrir o InfinitePay.',
+                    });
+                  } finally {
+                    setProcessing(false);
+                  }
                 };
 
                 return (
@@ -443,9 +504,10 @@ const PDVModal = () => {
                     )}
 
                     {/* Primary CTA */}
-                    <button onClick={handleOpen}
+                    <button onClick={handleOpen} disabled={processing}
                       className="w-full py-4 bg-[#C8FF00] text-[#4f6700] font-black rounded-xl mb-3 hover:bg-[#b3e600] transition-colors shadow-[0_0_20px_rgba(200,255,0,0.25)] flex items-center justify-center gap-2">
-                      <ExternalLink size={18} /> Cobrar com InfinitePay
+                      {processing ? <Loader2 size={18} className="animate-spin" /> : <ExternalLink size={18} />}
+                      {processing ? 'Preparando...' : 'Cobrar com InfinitePay'}
                     </button>
 
                     {/* Manual fallback */}

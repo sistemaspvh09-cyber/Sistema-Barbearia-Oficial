@@ -1,14 +1,15 @@
 # Sistema-Barbearia-Oficial
 
-Repositório oficial com:
+Repositório oficial do BarberPro V1, em arquitetura Supabase-first, com:
 
 - frontend React + Vite na raiz
-- backend Laravel em [`backend/`](backend)
+- backend Laravel em [`backend/`](backend) fora do caminho crítico do runtime atual
 
 ## Estrutura
 
 - raiz: app web publicada no Vercel
-- `backend/`: API Laravel preparada para deploy separado no Railway
+- `backend/`: API Laravel preparada para deploy separado no Railway para evoluções futuras
+- [`setup-database.sql`](setup-database.sql): schema canônico do V1 no Supabase
 - `docs/railway-runbook.md`: checklist de deploy do backend
 - `docs/vercel-production.md`: variáveis e operação do frontend em produção
 
@@ -24,7 +25,7 @@ Variáveis esperadas no frontend:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY` ou `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
-- `VITE_BACKEND_URL` quando o frontend precisar consumir a API publicada
+- `VITE_BACKEND_URL` opcional no V1; use apenas quando o frontend precisar falar com uma API publicada
 
 Use [`.env.production.example`](.env.production.example) como base para produção.
 
@@ -36,6 +37,8 @@ O backend usa:
 - Laravel 13
 - Postgres/Supabase
 - InfinitePay real com checkout, `payment_check` e webhook
+
+O frontend V1 não depende do backend Laravel para login, agenda, clientes, equipe, estoque, financeiro, configurações e fluxo InfinitePay client-side.
 
 Use [`backend/.env.production.example`](backend/.env.production.example) como base.
 

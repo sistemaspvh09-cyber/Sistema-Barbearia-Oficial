@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Calendar, Clock, User, Scissors, Search, Loader2, Check } from 'lucide-react';
 import { useModal } from '../../contexts/ModalContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useBarbershopContext } from '../../contexts/BarbershopContext';
 import { supabase } from '../../lib/supabase';
 import { useNotificationToast } from '../../contexts/NotificationToastContext';
 import { createCalendarEvent, isAutoOpenEnabled } from '../../lib/googleCalendar';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { emitAppDataChanged } from '../../lib/events';
 
 interface Client {
   id: string;
@@ -26,110 +25,144 @@ interface Barber {
   name: string;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 const AgendamentoModal = () => {
   const { activeModal, closeModal } = useModal();
-  const { user } = useAuth();
+  const { role, barbershop, barberProfile, internalUser } = useBarbershopContext();
   const { showToast } = useNotificationToast();
 
-  const [barbershopId, setBarbershopId] = useState<string | null>(null);
-
-  // Form state
   const [clientSearch, setClientSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedBarberId, setSelectedBarberId] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-
-  // Data from DB
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
-
-  // UI state
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const isBarber = user?.user_metadata?.role === 'barbeiro';
+  const isBarber = role === 'barbeiro';
 
-  // Load data when modal opens
   useEffect(() => {
-    if (!user || activeModal !== 'AGENDAMENTO') return;
+    if (activeModal !== 'AGENDAMENTO' || !barbershop?.id) {
+      return;
+    }
 
-    supabase.from('User').select('id, barbershopId').eq('authId', user.id).single().then(async ({ data: userData }) => {
-      if (!userData?.barbershopId) return;
-      const bsId = userData.barbershopId as string;
-      setBarbershopId(bsId);
+    if (isBarber && barberProfile?.id) {
+      setSelectedBarberId(barberProfile.id);
+    }
 
-      // If barber, pre-select self
-      if (isBarber) {
-        const { data: barberData } = await supabase.from('Barber').select('id').eq('userId', userData.id).single();
-        if (barberData) setSelectedBarberId(barberData.id as string);
-      }
-
-      // Load clients
-      supabase.from('Client').select('id, userId').eq('barbershopId', bsId).eq('isActive', true).limit(100).then(async ({ data: cls }) => {
-        if (!cls?.length) return;
-        const { data: users } = await supabase.from('User').select('id, name, phone').in('id', cls.map((c: { userId: string }) => c.userId));
-        if (users) setClients(cls.map((c: { id: string; userId: string }) => {
-          const u = (users as { id: string; name: string; phone: string | null }[]).find((u) => u.id === c.userId);
-          return { id: c.id, name: u?.name ?? 'Cliente', phone: u?.phone ?? null };
-        }));
+    supabase
+      .from('Client')
+      .select('id, name, phone')
+      .eq('barbershopId', barbershop.id)
+      .eq('isActive', true)
+      .order('name')
+      .limit(100)
+      .then(({ data }) => {
+        setClients((data as Client[]) ?? []);
       });
 
-      // Load services
-      supabase.from('Service').select('id, name, price, duration').eq('barbershopId', bsId).eq('isActive', true).then(({ data: svcs }) => {
-        if (svcs) setServices(svcs as Service[]);
+    supabase
+      .from('Service')
+      .select('id, name, price, duration')
+      .eq('barbershopId', barbershop.id)
+      .eq('isActive', true)
+      .order('sortOrder')
+      .order('name')
+      .then(({ data }) => {
+        setServices((data as Service[]) ?? []);
       });
 
-      // Load barbers (admin only)
-      if (!isBarber) {
-        supabase.from('Barber').select('id, userId').eq('barbershopId', bsId).eq('isActive', true).then(async ({ data: barberRows }) => {
-          if (!barberRows?.length) return;
-          const { data: barberUsers } = await supabase.from('User').select('id, name').in('id', barberRows.map((b: { userId: string }) => b.userId));
-          if (barberUsers) setBarbers(barberRows.map((b: { id: string; userId: string }) => {
-            const u = (barberUsers as { id: string; name: string }[]).find((u) => u.id === b.userId);
-            return { id: b.id, name: u?.name ?? 'Barbeiro' };
-          }));
+    if (!isBarber) {
+      supabase
+        .from('Barber')
+        .select('id, userId')
+        .eq('barbershopId', barbershop.id)
+        .eq('isActive', true)
+        .then(async ({ data: barberRows }) => {
+          if (!barberRows?.length) {
+            setBarbers([]);
+            return;
+          }
+
+          const { data: barberUsers } = await supabase
+            .from('User')
+            .select('id, name')
+            .in('id', barberRows.map((barber) => barber.userId));
+
+          setBarbers(
+            barberRows.map((barber) => ({
+              id: barber.id as string,
+              name:
+                (barberUsers as { id: string; name: string }[] | null)?.find((candidate) => candidate.id === barber.userId)
+                  ?.name ?? 'Barbeiro',
+            })),
+          );
         });
-      }
-    });
-  }, [user, activeModal, isBarber]);
+    }
+  }, [activeModal, barbershop?.id, barberProfile?.id, isBarber]);
 
-  const selectedService = services.find((s) => s.id === selectedServiceId);
-  const selectedClient = clients.find((c) => c.id === selectedClientId);
-  const filteredClients = clients.filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()));
+  const selectedService = services.find((service) => service.id === selectedServiceId);
+  const selectedClient = clients.find((client) => client.id === selectedClientId);
+  const filteredClients = clients.filter((client) => client.name.toLowerCase().includes(clientSearch.toLowerCase()));
+
+  const resetForm = () => {
+    setClientSearch('');
+    setSelectedClientId('');
+    setSelectedServiceId('');
+    setDate('');
+    setTime('');
+    setSaving(false);
+    setSuccess(false);
+
+    if (!isBarber) {
+      setSelectedBarberId('');
+    }
+  };
+
+  const handleClose = () => {
+    resetForm();
+    closeModal();
+  };
 
   const handleConfirm = async () => {
-    if (!barbershopId || !selectedServiceId || !date || !time) {
+    if (!barbershop?.id || !selectedServiceId || !date || !time) {
       showToast({ type: 'warning', title: 'Preencha todos os campos obrigatórios' });
       return;
     }
 
     setSaving(true);
+
     try {
       const startDateTime = new Date(`${date}T${time}:00`);
-      const endDateTime = new Date(startDateTime.getTime() + (selectedService?.duration ?? 30) * 60_000);
+      const duration = selectedService?.duration ?? 30;
+      const endDateTime = new Date(startDateTime.getTime() + duration * 60_000);
 
       const { error } = await supabase.from('Appointment').insert({
-        barbershopId,
+        barbershopId: barbershop.id,
         clientId: selectedClientId || null,
-        barberId: selectedBarberId || null,
+        barberId: selectedBarberId || barberProfile?.id || null,
         serviceId: selectedServiceId,
         scheduledAt: startDateTime.toISOString(),
+        duration,
         status: 'SCHEDULED',
         price: selectedService?.price ?? 0,
+        paymentMethod: null,
+        paymentStatus: 'PENDING',
       });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      // Open Google Calendar event in new tab if auto-open is enabled
+      emitAppDataChanged('appointment-created');
+
       if (isAutoOpenEnabled()) {
         const barberName = isBarber
-          ? (user?.user_metadata?.full_name ?? user?.email ?? 'Barbeiro')
-          : (barbers.find((b) => b.id === selectedBarberId)?.name ?? 'Barbeiro');
+          ? internalUser?.name ?? 'Barbeiro'
+          : barbers.find((barber) => barber.id === selectedBarberId)?.name ?? 'Barbeiro';
 
         await createCalendarEvent({
           title: selectedService?.name ?? 'Agendamento',
@@ -143,21 +176,20 @@ const AgendamentoModal = () => {
 
       setSuccess(true);
       showToast({ type: 'success', title: 'Agendamento confirmado!' });
-      setTimeout(() => { closeModal(); setSuccess(false); resetForm(); }, 1800);
-    } catch {
-      showToast({ type: 'error', title: 'Erro ao agendar', message: 'Tente novamente.' });
-    } finally {
+      setTimeout(() => {
+        handleClose();
+      }, 1800);
+    } catch (appointmentError) {
+      const message =
+        appointmentError instanceof Error ? appointmentError.message : 'Tente novamente em instantes.';
+      showToast({ type: 'error', title: 'Erro ao agendar', message });
       setSaving(false);
     }
   };
 
-  const resetForm = () => {
-    setClientSearch(''); setSelectedClientId(''); setSelectedServiceId('');
-    if (!isBarber) setSelectedBarberId('');
-    setDate(''); setTime('');
-  };
-
-  if (activeModal !== 'AGENDAMENTO') return null;
+  if (activeModal !== 'AGENDAMENTO') {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
@@ -167,7 +199,7 @@ const AgendamentoModal = () => {
             <span className="w-2 h-2 rounded-full bg-[#C8FF00]" />
             Novo Agendamento
           </h2>
-          <button onClick={() => { closeModal(); resetForm(); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+          <button onClick={handleClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <X size={20} className="text-on-surface-variant" />
           </button>
         </div>
@@ -185,56 +217,75 @@ const AgendamentoModal = () => {
         ) : (
           <>
             <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar pb-10">
-              {/* Cliente */}
               <div>
                 <label className="text-xs font-bold text-on-surface-variant mb-2 block uppercase tracking-wider">Buscar Cliente</label>
                 <div className="relative">
                   <Search className="absolute top-3 left-4 text-on-surface-variant" size={18} />
-                  <input type="text" value={clientSearch}
-                    onChange={(e) => { setClientSearch(e.target.value); if (selectedClientId) setSelectedClientId(''); }}
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    onChange={(event) => {
+                      setClientSearch(event.target.value);
+                      if (selectedClientId) setSelectedClientId('');
+                    }}
                     className="w-full bg-surface-container border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-[#C8FF00] transition-all text-white placeholder-white/20"
-                    placeholder="Nome ou telefone do cliente..." />
+                    placeholder="Nome ou telefone do cliente..."
+                  />
                 </div>
                 {clientSearch && !selectedClientId && filteredClients.length > 0 && (
                   <div className="mt-1 bg-surface-container-highest border border-white/10 rounded-xl overflow-hidden max-h-36 overflow-y-auto">
-                    {filteredClients.slice(0, 5).map((c) => (
-                      <button key={c.id} className="w-full text-left px-4 py-2.5 hover:bg-white/5 text-sm text-white"
-                        onClick={() => { setSelectedClientId(c.id); setClientSearch(c.name); }}>
-                        <span className="font-semibold">{c.name}</span>
-                        {c.phone && <span className="text-on-surface-variant ml-2 text-xs">{c.phone}</span>}
+                    {filteredClients.slice(0, 5).map((client) => (
+                      <button
+                        key={client.id}
+                        className="w-full text-left px-4 py-2.5 hover:bg-white/5 text-sm text-white"
+                        onClick={() => {
+                          setSelectedClientId(client.id);
+                          setClientSearch(client.name);
+                        }}
+                      >
+                        <span className="font-semibold">{client.name}</span>
+                        {client.phone && <span className="text-on-surface-variant ml-2 text-xs">{client.phone}</span>}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {/* Serviço */}
+              <div className={`grid gap-4 ${isBarber ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <div>
                   <label className="text-xs font-bold text-on-surface-variant mb-2 block uppercase tracking-wider">Serviço *</label>
                   <div className="relative">
                     <Scissors className="absolute top-3 left-3 text-on-surface-variant" size={16} />
-                    <select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)}
-                      className="w-full bg-surface-container border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-[#C8FF00] transition-all text-white appearance-none cursor-pointer">
+                    <select
+                      value={selectedServiceId}
+                      onChange={(event) => setSelectedServiceId(event.target.value)}
+                      className="w-full bg-surface-container border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-[#C8FF00] transition-all text-white appearance-none cursor-pointer"
+                    >
                       <option value="">Selecione...</option>
-                      {services.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name} (R$ {s.price.toFixed(2).replace('.', ',')})</option>
+                      {services.map((service) => (
+                        <option key={service.id} value={service.id}>
+                          {service.name} (R$ {service.price.toFixed(2).replace('.', ',')})
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
-                {/* Profissional — admin only */}
                 {!isBarber && (
                   <div>
                     <label className="text-xs font-bold text-on-surface-variant mb-2 block uppercase tracking-wider">Profissional</label>
                     <div className="relative">
                       <User className="absolute top-3 left-3 text-on-surface-variant" size={16} />
-                      <select value={selectedBarberId} onChange={(e) => setSelectedBarberId(e.target.value)}
-                        className="w-full bg-surface-container border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-[#C8FF00] transition-all text-white appearance-none cursor-pointer">
+                      <select
+                        value={selectedBarberId}
+                        onChange={(event) => setSelectedBarberId(event.target.value)}
+                        className="w-full bg-surface-container border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-[#C8FF00] transition-all text-white appearance-none cursor-pointer"
+                      >
                         <option value="">Qualquer</option>
-                        {barbers.map((b) => (
-                          <option key={b.id} value={b.id}>{b.name}</option>
+                        {barbers.map((barber) => (
+                          <option key={barber.id} value={barber.id}>
+                            {barber.name}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -243,29 +294,34 @@ const AgendamentoModal = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                {/* Data */}
                 <div>
                   <label className="text-xs font-bold text-on-surface-variant mb-2 block uppercase tracking-wider">Data *</label>
                   <div className="relative">
                     <Calendar className="absolute top-3 left-3 text-on-surface-variant" size={16} />
-                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(event) => setDate(event.target.value)}
                       min={new Date().toISOString().split('T')[0]}
-                      className="w-full bg-surface-container border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-[#C8FF00] transition-all text-white [color-scheme:dark]" />
+                      className="w-full bg-surface-container border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-[#C8FF00] transition-all text-white [color-scheme:dark]"
+                    />
                   </div>
                 </div>
 
-                {/* Horário */}
                 <div>
                   <label className="text-xs font-bold text-on-surface-variant mb-2 block uppercase tracking-wider">Horário *</label>
                   <div className="relative">
                     <Clock className="absolute top-3 left-3 text-on-surface-variant" size={16} />
-                    <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
-                      className="w-full bg-surface-container border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-[#C8FF00] transition-all text-white [color-scheme:dark]" />
+                    <input
+                      type="time"
+                      value={time}
+                      onChange={(event) => setTime(event.target.value)}
+                      className="w-full bg-surface-container border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-[#C8FF00] transition-all text-white [color-scheme:dark]"
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Google Calendar indicator */}
               {isAutoOpenEnabled() && (
                 <div className="flex items-center gap-2 text-xs text-[#C8FF00]/70">
                   <Calendar size={12} />
@@ -282,13 +338,24 @@ const AgendamentoModal = () => {
                 </p>
               </div>
               <div className="flex gap-3 w-full sm:w-auto">
-                <button onClick={() => { closeModal(); resetForm(); }}
-                  className="px-6 py-3 font-bold text-on-surface transition-colors hover:bg-white/5 rounded-xl w-full sm:w-auto">
+                <button
+                  onClick={handleClose}
+                  className="px-6 py-3 font-bold text-on-surface transition-colors hover:bg-white/5 rounded-xl w-full sm:w-auto"
+                >
                   Cancelar
                 </button>
-                <button onClick={handleConfirm} disabled={saving || !selectedServiceId || !date || !time}
-                  className="px-8 py-3 font-black text-[#4f6700] bg-[#C8FF00] hover:bg-[#b3e600] transition-colors rounded-xl neon-shadow w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-                  {saving ? <><Loader2 size={16} className="animate-spin" /> Salvando...</> : 'Confirmar'}
+                <button
+                  onClick={handleConfirm}
+                  disabled={saving || !selectedServiceId || !date || !time}
+                  className="px-8 py-3 font-black text-[#4f6700] bg-[#C8FF00] hover:bg-[#b3e600] transition-colors rounded-xl neon-shadow w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Salvando...
+                    </>
+                  ) : (
+                    'Confirmar'
+                  )}
                 </button>
               </div>
             </div>

@@ -1,6 +1,7 @@
 
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBarbershopContext } from '../../contexts/BarbershopContext';
 import { 
   Scissors, 
   LayoutDashboard, 
@@ -10,12 +11,12 @@ import {
   Package, 
   Settings, 
   HelpCircle, 
-  LogOut,
-  Award
+  LogOut
 } from 'lucide-react';
 
 const Sidebar = () => {
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
+  const { role, barbershop } = useBarbershopContext();
 
   const menuItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -24,7 +25,6 @@ const Sidebar = () => {
     { name: 'Equipe', path: '/equipe', icon: Scissors },
     { name: 'Financeiro', path: '/financeiro', icon: CircleDollarSign },
     { name: 'Estoque', path: '/estoque', icon: Package },
-    { name: 'Fidelidade', path: '/fidelidade', icon: Award },
   ];
 
   return (
@@ -36,15 +36,15 @@ const Sidebar = () => {
         <div className="flex flex-col">
           <span className="text-2xl font-black text-[#C8FF00] tracking-tighter">BarberPro</span>
           <span className="text-[10px] text-on-surface-variant uppercase tracking-[0.2em] font-bold">
-            {user?.user_metadata?.role === 'barbeiro' ? 'Barbeiro' : 'Premium Admin'}
+            {role === 'barbeiro' ? 'Barbeiro' : 'Premium Admin'}
           </span>
         </div>
       </div>
 
       <nav className="flex flex-col gap-1 flex-1">
         {menuItems.filter((item) => {
-          if (user?.user_metadata?.role === 'barbeiro') {
-            return !['Equipe', 'Estoque', 'Fidelidade'].includes(item.name);
+          if (role === 'barbeiro') {
+            return !['Equipe', 'Estoque'].includes(item.name);
           }
           return true; // admin sees everything
         }).map((item) => {
@@ -79,9 +79,15 @@ const Sidebar = () => {
             }`
           }
         >
-          <Settings size={20} />
-          <span>Configurações</span>
-        </NavLink>
+            <Settings size={20} />
+            <span>Configurações</span>
+          </NavLink>
+        {barbershop && (
+          <div className="rounded-xl border border-white/5 bg-surface-container-low px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Barbearia ativa</p>
+            <p className="mt-1 text-sm font-bold text-white">{barbershop.name}</p>
+          </div>
+        )}
         <button className="flex items-center gap-3 px-4 py-3 text-[#A0A0A0] hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300">
           <HelpCircle size={20} />
           <span className="font-medium">Suporte</span>

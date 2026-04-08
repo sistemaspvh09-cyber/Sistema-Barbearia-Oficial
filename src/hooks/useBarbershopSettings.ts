@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useBarbershopContext } from '../contexts/BarbershopContext';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -12,6 +12,7 @@ export interface BarbershopData {
   phone: string | null;
   email: string | null;
   address: string | null;
+  neighborhood: string | null;
   city: string | null;
   state: string | null;
   zipCode: string | null;
@@ -35,23 +36,12 @@ export interface WorkingHour {
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useBarbershopSettings() {
-  const { user } = useAuth();
+  const { internalUser } = useBarbershopContext();
   const [barbershop, setBarbershop] = useState<BarbershopData | null>(null);
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [barbershopId, setBarbershopId] = useState<string | null>(null);
-
-  // ── Fetch internal User → barbershopId ───────────────────────────────────
-  const fetchBarbershopId = useCallback(async (): Promise<string | null> => {
-    if (!user) return null;
-    const { data } = await supabase
-      .from('User')
-      .select('barbershopId')
-      .eq('authId', user.id)
-      .single();
-    return data?.barbershopId ?? null;
-  }, [user]);
 
   // ── Fetch barbershop data ─────────────────────────────────────────────────
   const fetchBarbershop = useCallback(async (bsId: string) => {
@@ -89,16 +79,19 @@ export function useBarbershopSettings() {
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!user) return;
-    setLoading(true);
-    fetchBarbershopId().then(async (bsId) => {
-      if (bsId) {
-        setBarbershopId(bsId);
-        await Promise.all([fetchBarbershop(bsId), fetchWorkingHours(bsId)]);
-      }
+    if (!internalUser?.barbershopId) {
+      setBarbershop(null);
+      setWorkingHours([]);
+      setBarbershopId(null);
       setLoading(false);
-    });
-  }, [user, fetchBarbershopId, fetchBarbershop, fetchWorkingHours]);
+      return;
+    }
+
+    setLoading(true);
+    setBarbershopId(internalUser.barbershopId);
+    Promise.all([fetchBarbershop(internalUser.barbershopId), fetchWorkingHours(internalUser.barbershopId)])
+      .finally(() => setLoading(false));
+  }, [internalUser?.barbershopId, fetchBarbershop, fetchWorkingHours]);
 
   // ── Save barbershop profile ───────────────────────────────────────────────
   const saveBarbershop = useCallback(

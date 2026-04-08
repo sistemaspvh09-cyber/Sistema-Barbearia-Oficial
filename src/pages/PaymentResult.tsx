@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { XCircle, Loader2, ArrowLeft, Receipt } from 'lucide-react';
 import { parseInfinitePayResult, getPendingTransaction, clearPendingTransaction } from '../lib/infinitePay';
-import { createTransaction, PAYMENT_METHOD_LABEL } from '../services/transactionService';
+import { emitAppDataChanged } from '../lib/events';
+import {
+  findTransactionByExternalOrderId,
+  PAYMENT_METHOD_LABEL,
+  upsertTransactionByExternalOrderId,
+  updateTransaction,
+} from '../services/transactionService';
 
 // ─── Card brand icon map ──────────────────────────────────────────────────────
 
@@ -86,8 +92,23 @@ export default function PaymentResult() {
         return;
       }
 
+      const existing = await findTransactionByExternalOrderId(result.orderId);
+
       // Error from InfinitePay
       if (result.warning) {
+        if (existing) {
+          await updateTransaction(existing.id, {
+            status: 'CANCELLED',
+            gateway: 'infinitepay',
+            gatewayReference: result.nsu || existing.gatewayReference,
+            metadata: {
+              ...(existing.metadata ?? {}),
+              warning: result.warning,
+              result,
+            },
+          });
+        }
+
         setError(result.warning);
         setState('error');
         return;
@@ -96,15 +117,38 @@ export default function PaymentResult() {
       const pending = getPendingTransaction(result.orderId);
 
       try {
-        if (pending?.barbershopId) {
-          await createTransaction({
-            barbershopId:  pending.barbershopId,
-            type:          'INCOME',
-            amount:        pending.amountCents / 100,
-            paymentMethod: pending.paymentMethod,
-            description:   pending.description || 'Pagamento via InfinitePay',
-            category:      'servico',
+        if (pending?.barbershopId || existing) {
+          const source = pending ?? {
+            amountCents: Math.round((existing?.amount ?? 0) * 100),
+            paymentMethod: existing?.paymentMethod ?? 'CREDIT_CARD',
+            description: existing?.description || 'Pagamento via InfinitePay',
+            clientId: existing?.clientId ?? null,
+            barbershopId: existing?.barbershopId ?? null,
+            installments: 1,
+            orderId: result.orderId,
+            createdAt: existing?.createdAt ?? new Date().toISOString(),
+          };
+
+          await upsertTransactionByExternalOrderId({
+            barbershopId: source.barbershopId ?? existing?.barbershopId ?? '',
+            clientId: source.clientId ?? existing?.clientId ?? null,
+            barberId: existing?.barberId ?? null,
+            type: 'INCOME',
+            amount: source.amountCents / 100,
+            paymentMethod: source.paymentMethod,
+            description: source.description || 'Pagamento via InfinitePay',
+            category: 'servico',
+            status: 'COMPLETED',
+            gateway: 'infinitepay',
+            gatewayReference: result.nsu || result.aut,
+            externalOrderId: result.orderId,
+            metadata: {
+              ...(existing?.metadata ?? {}),
+              infinitePay: result,
+              installments: source.installments,
+            },
           });
+          emitAppDataChanged('transaction-completed');
         }
       } catch (e) {
         console.error('Falha ao salvar transação:', e);
@@ -165,7 +209,7 @@ export default function PaymentResult() {
             {errorMsg || 'O pagamento foi recusado ou cancelado.'}
           </p>
           <button
-            onClick={() => navigate('/app/financeiro')}
+            onClick={() => navigate('/financeiro')}
             className="w-full py-4 bg-[#C8FF00] text-[#4f6700] font-black rounded-2xl flex items-center justify-center gap-2">
             <ArrowLeft size={18} /> Voltar ao sistema
           </button>
@@ -222,7 +266,7 @@ export default function PaymentResult() {
         {/* Actions */}
         <div className="space-y-3">
           <button
-            onClick={() => navigate('/app/financeiro')}
+            onClick={() => navigate('/financeiro')}
             className="w-full py-4 bg-[#C8FF00] text-[#4f6700] font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-[#b3e600] transition-colors shadow-[0_0_24px_rgba(200,255,0,0.25)]">
             <Receipt size={18} /> Ver no Financeiro
           </button>

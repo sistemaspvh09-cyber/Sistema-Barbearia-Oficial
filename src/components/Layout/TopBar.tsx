@@ -2,6 +2,7 @@ import { Search, Settings, Plus, ShoppingCart } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useModal } from '../../contexts/ModalContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBarbershopContext } from '../../contexts/BarbershopContext';
 import NotificationPanel from '../Notifications/NotificationPanel';
 
 const getPageTitle = (pathname: string) => {
@@ -13,7 +14,6 @@ const getPageTitle = (pathname: string) => {
     '/financeiro': 'Financeiro Global',
     '/estoque': 'Gestão de Estoque',
     '/configuracoes': 'Configurações',
-    '/fidelidade': 'Fidelidade',
   };
   return routes[pathname] || 'BarberPro';
 };
@@ -23,8 +23,9 @@ const TopBar = () => {
   const pageTitle = getPageTitle(location.pathname);
   const { openModal } = useModal();
   const { user } = useAuth();
+  const { role, barbershop } = useBarbershopContext();
 
-  const isBarber = user?.user_metadata?.role === 'barbeiro';
+  const isBarber = role === 'barbeiro';
   const displayName =
     user?.user_metadata?.full_name ??
     user?.user_metadata?.name ??
@@ -97,7 +98,7 @@ const TopBar = () => {
               {displayName}
             </p>
             <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">
-              {isBarber ? 'Barbeiro' : 'Unidade Matriz'}
+              {isBarber ? 'Barbeiro' : barbershop?.name ?? 'Barbearia'}
             </p>
           </div>
           <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-[#C8FF00]/30 p-0.5 overflow-hidden group-hover:border-[#C8FF00] transition-all bg-surface-container">

@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { useBarbershopContext } from './BarbershopContext';
 
 export interface Notification {
   id: string;
@@ -30,25 +31,14 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { internalUser } = useBarbershopContext();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
-  const internalUserId = useRef<string | null>(null);
-
-  const getInternalUserId = useCallback(async (): Promise<string | null> => {
-    if (!user) return null;
-    if (internalUserId.current) return internalUserId.current;
-    const { data } = await supabase
-      .from('User')
-      .select('id')
-      .eq('authId', user.id)
-      .single();
-    internalUserId.current = data?.id ?? null;
-    return internalUserId.current;
-  }, [user]);
+  const currentUserId = internalUser?.id ?? null;
 
   const fetchNotifications = useCallback(async () => {
-    const userId = await getInternalUserId();
+    const userId = currentUserId;
     if (!userId) { setNotifications([]); setLoading(false); return; }
 
     const { data } = await supabase
@@ -60,75 +50,68 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     setNotifications((data as Notification[]) ?? []);
     setLoading(false);
-  }, [getInternalUserId]);
+  }, [currentUserId]);
 
   useEffect(() => {
-    if (user) {
+    if (user && currentUserId) {
       setLoading(true);
-      internalUserId.current = null;
       fetchNotifications();
     } else {
       setNotifications([]);
       setLoading(false);
     }
-  }, [user, fetchNotifications]);
+  }, [currentUserId, fetchNotifications, user]);
 
   // Supabase Realtime — escuta inserções/atualizações em tempo real
   useEffect(() => {
-    if (!user) return;
+    if (!user || !currentUserId) return;
 
-    let channel: ReturnType<typeof supabase.channel>;
-
-    getInternalUserId().then((userId) => {
-      if (!userId) return;
-
-      channel = supabase
-        .channel(`notifications:${userId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'Notification',
-            filter: `userId=eq.${userId}`,
-          },
-          (payload) => {
-            setNotifications((prev) => [payload.new as Notification, ...prev]);
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'Notification',
-            filter: `userId=eq.${userId}`,
-          },
-          (payload) => {
-            setNotifications((prev) =>
-              prev.map((n) => (n.id === payload.new.id ? (payload.new as Notification) : n))
-            );
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'Notification',
-            filter: `userId=eq.${userId}`,
-          },
-          (payload) => {
-            setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
-          }
-        )
-        .subscribe();
-    });
+    const channel: ReturnType<typeof supabase.channel> = supabase
+      .channel(`notifications:${currentUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'Notification',
+          filter: `userId=eq.${currentUserId}`,
+        },
+        (payload) => {
+          setNotifications((prev) => [payload.new as Notification, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'Notification',
+          filter: `userId=eq.${currentUserId}`,
+        },
+        (payload) => {
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === payload.new.id ? (payload.new as Notification) : n))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'Notification',
+          filter: `userId=eq.${currentUserId}`,
+        },
+        (payload) => {
+          setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
+        }
+      )
+      .subscribe();
 
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [user, getInternalUserId]);
+  }, [currentUserId, user]);
 
   const markAsRead = async (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));

@@ -3,9 +3,11 @@ import { Navigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Loader2, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useBarbershopContext } from '../contexts/BarbershopContext';
 
 const Login = () => {
   const { session } = useAuth();
+  const { role, loading: contextLoading, needsBarbershopSetup } = useBarbershopContext();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,9 +19,24 @@ const Login = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // If user is already logged in, redirect them away from Login page
   if (session) {
-    return <Navigate to="/dashboard" replace />;
+    if (contextLoading) {
+      return (
+        <div className="min-h-screen bg-surface flex items-center justify-center">
+          <Loader2 className="animate-spin text-[#C8FF00]" size={32} />
+        </div>
+      );
+    }
+
+    if (role === 'client') {
+      return <Navigate to="/app/historico" replace />;
+    }
+
+    if (needsBarbershopSetup) {
+      return <Navigate to="/setup" replace />;
+    }
+
+    return <Navigate to={role === 'barbeiro' ? '/agenda' : '/dashboard'} replace />;
   }
 
   const handleLogin = async (e: React.FormEvent) => {

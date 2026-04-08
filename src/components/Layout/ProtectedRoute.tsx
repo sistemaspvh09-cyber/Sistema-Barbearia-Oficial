@@ -2,12 +2,14 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { useBarbershopContext } from '../../contexts/BarbershopContext';
 
 const ProtectedRoute = () => {
   const { session, loading } = useAuth();
+  const { loading: contextLoading, needsBarbershopSetup, role } = useBarbershopContext();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || (session && contextLoading)) {
     // Elegant loading state that covers the screen initially if the session check is slow
     return (
       <div className="min-h-screen bg-surface flex flex-col items-center justify-center">
@@ -24,6 +26,14 @@ const ProtectedRoute = () => {
     // trying to go to when they were redirected. This allows us to send them
     // along to that page after they login, which is a nicer user experience.
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (role === 'client') {
+    return <Navigate to="/app" replace />;
+  }
+
+  if (needsBarbershopSetup && location.pathname !== '/setup') {
+    return <Navigate to="/setup" replace />;
   }
 
   // If authenticated, render the child routes which should be our MainLayout usually

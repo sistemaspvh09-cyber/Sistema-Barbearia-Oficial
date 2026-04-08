@@ -1,404 +1,227 @@
-
-import { 
-  Wallet, 
-  ReceiptText, 
-  CircleDollarSign, 
-  PiggyBank, 
-  ShoppingBag,
-  Send,
-  TrendingUp,
-  Scissors
-} from 'lucide-react';
+import { useMemo } from 'react';
+import { CircleDollarSign, ReceiptText, Send, TrendingUp, Wallet } from 'lucide-react';
 import { useModal } from '../contexts/ModalContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useBarbershopContext } from '../contexts/BarbershopContext';
+import { useBarbershopRuntime } from '../hooks/useBarbershopRuntime';
+import { formatCurrency, formatDateTime, getInitials } from '../lib/format';
+import { PAYMENT_METHOD_LABEL, type PaymentMethod } from '../services/transactionService';
 
-const BarberFinanceiro = () => {
-  const servicosDoMes = [
-    { servico: 'Corte Fade', cliente: 'Afonso Silva', horario: 'Hoje, 09:30', total: 45.00, comissao: 50 },
-    { servico: 'Corte + Barba', cliente: 'Guilherme R.', horario: 'Ontem, 16:00', total: 75.00, comissao: 50 },
-    { servico: 'Barba Completa', cliente: 'Eduardo M.', horario: '02/Abr, 11:15', total: 35.00, comissao: 50 },
-    { servico: 'Degradê + Sobrancelha', cliente: 'Thiago P.', horario: '01/Abr, 14:00', total: 60.00, comissao: 50 },
-  ];
-
-  const totalBruto = servicosDoMes.reduce((acc, s) => acc + s.total, 0);
-  const totalComissao = servicosDoMes.reduce((acc, s) => acc + (s.total * s.comissao / 100), 0);
-
-  return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 pt-8 pb-12">
-      <div className="mb-6">
-        <h1 className="text-3xl sm:text-4xl font-black text-white">Meu Financeiro</h1>
-        <p className="text-sm text-on-surface-variant mt-1">Valores cobrados pelo salão nos seus atendimentos. O pagamento da comissão é feito conforme acordo com o responsável.</p>
-      </div>
-
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-surface-container rounded-3xl p-6 glass-border flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute -right-4 -top-8 w-32 h-32 bg-[#C8FF00]/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-700"></div>
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-[#C8FF00]/10 flex items-center justify-center text-[#C8FF00] mb-3">
-              <ReceiptText size={20} />
-            </div>
-            <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Total Cobrado (Mês)</p>
-          </div>
-          <div className="mt-3 relative z-10">
-            <h3 className="text-2xl font-extrabold text-white tracking-tight">R$ {totalBruto.toFixed(2).replace('.', ',')}</h3>
-            <p className="text-on-surface-variant text-[10px] font-bold mt-1">Valor que entrou no caixa do salão</p>
-          </div>
-        </div>
-
-        <div className="bg-surface-container rounded-3xl p-6 glass-border flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute -right-4 -top-8 w-32 h-32 bg-[#C8FF00]/10 rounded-full blur-[40px] group-hover:scale-150 transition-transform duration-700"></div>
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-[#C8FF00] flex items-center justify-center text-[#4f6700] mb-3 shadow-[0_0_20px_rgba(200,255,0,0.3)]">
-              <CircleDollarSign size={20} />
-            </div>
-            <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Sua Comissão (50%)</p>
-          </div>
-          <div className="mt-3 relative z-10">
-            <h3 className="text-2xl font-extrabold text-white tracking-tight">R$ {totalComissao.toFixed(2).replace('.', ',')}</h3>
-            <p className="text-[#C8FF00] text-[10px] font-bold mt-1 uppercase tracking-widest">A receber do responsável</p>
-          </div>
-        </div>
-
-        <div className="bg-surface-container-low rounded-3xl p-6 border border-white/5 flex flex-col justify-between">
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-on-surface-variant mb-3">
-              <Wallet size={20} />
-            </div>
-            <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Outubro (Fechado)</p>
-          </div>
-          <div className="mt-3 opacity-60">
-            <h3 className="text-2xl font-extrabold text-white tracking-tight">R$ 4.850,00</h3>
-            <p className="text-white/50 text-[10px] font-bold mt-1 uppercase tracking-widest">Liquidado</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Banner informativo */}
-      <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
-        <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
-          <span className="text-blue-400 text-xs font-black">i</span>
-        </div>
-        <p className="text-xs text-blue-200/80 leading-relaxed">
-          Os valores abaixo são cobrados diretamente na conta do salão (via InfinitePay do responsável). O cálculo da sua comissão é exibido para sua transparência — entre em contato com o gestor para combinar a data de repasse.
-        </p>
-      </div>
-
-      {/* Extrato Detalhado */}
-      <div className="bg-surface-container rounded-3xl p-6 sm:p-8 border border-white/5">
-        <h2 className="text-lg font-bold text-white mb-6">Extrato de Atendimentos</h2>
-        
-        <div className="space-y-3">
-          {servicosDoMes.map((item, i) => (
-            <div key={i} className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl border border-white/5 hover:border-[#C8FF00]/10 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-on-surface-variant shrink-0">
-                  <Scissors size={18} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">{item.servico}</h4>
-                  <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">{item.cliente} • {item.horario}</p>
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <span className="text-sm font-black text-white block">R$ {item.total.toFixed(2).replace('.', ',')}</span>
-                <span className="text-[10px] text-[#C8FF00] font-bold uppercase">Sua parte: R$ {(item.total * item.comissao / 100).toFixed(2).replace('.', ',')}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-          <span className="text-xs text-on-surface-variant">Total: <strong className="text-white">{servicosDoMes.length} atendimentos</strong></span>
-          <div className="flex gap-4">
-            <div className="text-right">
-              <p className="text-[10px] text-on-surface-variant uppercase">Total Bruto Cobrado</p>
-              <p className="text-sm font-black text-white">R$ {totalBruto.toFixed(2).replace('.', ',')}</p>
-            </div>
-            <div className="w-px bg-white/10"></div>
-            <div className="text-right">
-              <p className="text-[10px] text-[#C8FF00] uppercase">Comissão Devida</p>
-              <p className="text-sm font-black text-[#C8FF00]">R$ {totalComissao.toFixed(2).replace('.', ',')}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+const paymentLabel = (method: PaymentMethod | null) => (method ? PAYMENT_METHOD_LABEL[method] ?? method : 'Nao informado');
 
 const Financeiro = () => {
   const { openModal } = useModal();
-  const { user } = useAuth();
-  
-  if (user?.user_metadata?.role === 'barbeiro') {
-    return <BarberFinanceiro />;
-  }
+  const { role, barberProfile } = useBarbershopContext();
+  const { transactions, barbers, users, clients, loading, error } = useBarbershopRuntime();
+
+  const userById = useMemo(() => Object.fromEntries(users.map((user) => [user.id, user])), [users]);
+  const clientById = useMemo(() => Object.fromEntries(clients.map((client) => [client.id, client])), [clients]);
+  const barberById = useMemo(() => Object.fromEntries(barbers.map((barber) => [barber.id, barber])), [barbers]);
+
+  const visibleTransactions = useMemo(() => {
+    if (role === 'barbeiro') {
+      return transactions.filter((transaction) => transaction.barberId === barberProfile?.id);
+    }
+    return transactions;
+  }, [barberProfile?.id, role, transactions]);
+
+  const incomeTransactions = visibleTransactions.filter((transaction) => transaction.type === 'INCOME');
+  const completedTransactions = incomeTransactions.filter((transaction) => transaction.status === 'COMPLETED');
+  const pendingTransactions = visibleTransactions.filter((transaction) => transaction.status === 'PENDING');
+  const totalRevenue = completedTransactions.reduce((total, transaction) => total + transaction.amount, 0);
+  const cancelledRevenue = incomeTransactions
+    .filter((transaction) => transaction.status === 'CANCELLED')
+    .reduce((total, transaction) => total + transaction.amount, 0);
+
+  const paymentBreakdown = (() => {
+    const grouped = new Map<string, number>();
+
+    completedTransactions.forEach((transaction) => {
+      const key = paymentLabel(transaction.paymentMethod);
+      grouped.set(key, (grouped.get(key) ?? 0) + transaction.amount);
+    });
+
+    return [...grouped.entries()]
+      .map(([label, amount]) => ({ label, amount }))
+      .sort((left, right) => right.amount - left.amount);
+  })();
+
+  const commissionOverview = barbers
+    .map((barber) => {
+      const profile = userById[barber.userId];
+      const revenue = transactions
+        .filter((transaction) => transaction.barberId === barber.id && transaction.type === 'INCOME' && transaction.status === 'COMPLETED')
+        .reduce((total, transaction) => total + transaction.amount, 0);
+      const commissionRate = profile?.commissionRate ?? 0;
+
+      return {
+        id: barber.id,
+        name: profile?.name ?? 'Profissional',
+        revenue,
+        commissionRate,
+        commissionAmount: revenue * (commissionRate / 100),
+      };
+    })
+    .filter((barber) => barber.revenue > 0)
+    .sort((left, right) => right.commissionAmount - left.commissionAmount);
 
   return (
     <div className="space-y-8">
-      {/* Bento Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-surface-container rounded-3xl p-6 glass-border flex flex-col justify-between group transition-all duration-300 hover:bg-surface-container-high">
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-[#C8FF00]/10 flex items-center justify-center text-[#C8FF00] mb-4">
-              <Wallet size={20} />
-            </div>
-            <p className="text-on-surface-variant text-sm font-medium">Faturamento Total</p>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-extrabold text-white">R$ 42.580,00</h3>
-            <p className="text-[#C8FF00] text-xs font-bold mt-1 flex items-center gap-1">
-              <TrendingUp size={14} /> +12.5% vs mês anterior
-            </p>
-          </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tight text-white">{role === 'barbeiro' ? 'Meu financeiro' : 'Financeiro'}</h1>
+          <p className="mt-2 text-on-surface-variant">
+            {role === 'barbeiro'
+              ? 'Somente as suas transações e cobranças registradas aparecem aqui.'
+              : 'Visão consolidada das transações registradas no caixa e das comissões da equipe.'}
+          </p>
         </div>
-
-        <div className="bg-surface-container rounded-3xl p-6 glass-border flex flex-col justify-between group transition-all duration-300 hover:bg-surface-container-high">
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center text-error mb-4">
-              <ReceiptText size={20} />
-            </div>
-            <p className="text-on-surface-variant text-sm font-medium">Despesas Fixas</p>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-extrabold text-white">R$ 8.420,00</h3>
-            <p className="text-on-surface-variant text-xs mt-1">Vencimento prox: 05/11</p>
-          </div>
-        </div>
-
-        <div className="bg-surface-container rounded-3xl p-6 glass-border flex flex-col justify-between group transition-all duration-300 hover:bg-surface-container-high">
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-primary-fixed-dim/10 flex items-center justify-center text-primary-fixed-dim mb-4">
-              <CircleDollarSign size={20} />
-            </div>
-            <p className="text-on-surface-variant text-sm font-medium">Comissões Pagas</p>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-extrabold text-white">R$ 12.140,00</h3>
-            <p className="text-on-surface-variant text-xs mt-1">4 barbeiros ativos</p>
-          </div>
-        </div>
-
-        <div className="bg-primary-container rounded-3xl p-6 flex flex-col justify-between shadow-[0_0_40px_rgba(200,255,0,0.15)]">
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-[#4f6700]/10 flex items-center justify-center text-[#4f6700] mb-4">
-              <PiggyBank size={20} />
-            </div>
-            <p className="text-on-primary-container text-sm font-bold">Lucro Líquido</p>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-black text-[#4f6700]">R$ 22.020,00</h3>
-            <p className="text-[#4f6700]/70 text-xs font-bold mt-1">Margem de 51.7%</p>
-          </div>
-        </div>
+        <button
+          onClick={() => openModal('PDV')}
+          className="flex items-center gap-2 rounded-2xl bg-[#C8FF00] px-6 py-3 font-black text-[#4f6700]"
+        >
+          <Send size={18} />
+          Nova cobrança
+        </button>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Daily Revenue Chart (Asymmetric larger card) */}
-        <div className="lg:col-span-2 bg-surface-container rounded-3xl p-8 glass-border">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-lg font-bold text-white">Faturamento Diário</h2>
-              <p className="text-on-surface-variant text-sm">Últimos 14 dias</p>
-            </div>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 bg-surface-container-high text-xs font-bold rounded-xl glass-border text-on-surface-variant hover:text-white transition-colors">Semanal</button>
-              <button className="px-4 py-2 bg-[#C8FF00] text-[#4f6700] text-xs font-bold rounded-xl">Mensal</button>
-            </div>
-          </div>
-
-          <div className="h-64 flex items-end justify-between gap-1 sm:gap-2 px-2 overflow-x-auto custom-scrollbar pb-2">
-            {[40, 65, 45, 85, 95, 55, 40, 60, 75, 50, 65, 90, 30, 45].map((height, i) => (
-              <div 
-                key={i}
-                className={`flex-1 min-w-[20px] sm:min-w-0 rounded-t-lg transition-all duration-300 cursor-pointer group relative ${height === 95 ? 'bg-[#C8FF00] shadow-[0_0_15px_rgba(200,255,0,0.3)]' : 'bg-surface-container-highest hover:bg-[#C8FF00]'}`}
-                style={{ height: `${height}%` }}
-              >
-                {height === 95 ? (
-                  <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] text-[#C8FF00] font-bold z-10 w-max">R$3.2k</span>
-                ) : (
-                  <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] bg-black p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 w-max">
-                    R${(height * 0.03).toFixed(1)}k
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Payment Method */}
-        <div className="bg-surface-container rounded-3xl p-8 glass-border flex flex-col">
-          <h2 className="text-lg font-bold text-white mb-6">Meios de Pagamento</h2>
-          
-          <div className="flex-1 flex flex-col justify-center gap-6">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-[#C8FF00]"></div>
-                  <span className="text-sm font-medium text-white">Cartão (InfinitePay)</span>
-                </div>
-                <span className="text-sm font-bold">65%</span>
-              </div>
-              <div className="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
-                <div className="bg-[#C8FF00] h-full" style={{ width: '65%' }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-outline"></div>
-                  <span className="text-sm font-medium text-white">PIX</span>
-                </div>
-                <span className="text-sm font-bold">28%</span>
-              </div>
-              <div className="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
-                <div className="bg-outline h-full" style={{ width: '28%' }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-surface-variant"></div>
-                  <span className="text-sm font-medium text-white">Dinheiro</span>
-                </div>
-                <span className="text-sm font-bold">7%</span>
-              </div>
-              <div className="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
-                <div className="bg-surface-variant h-full" style={{ width: '7%' }}></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 p-4 bg-surface-container-low rounded-2xl border border-outline-variant/20">
-            <p className="text-[10px] text-outline uppercase tracking-widest font-bold mb-2 text-center">Taxas Médias InfinitePay</p>
-            <div className="flex justify-between text-xs">
-              <span className="text-[#C8FF00]">Crédito: 1.25%</span>
-              <span className="text-on-surface-variant">Débito: 0.98%</span>
-            </div>
-          </div>
-        </div>
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard label="Receita concluida" value={formatCurrency(totalRevenue)} helper={`${completedTransactions.length} transacoes pagas`} icon={<Wallet size={22} />} />
+        <SummaryCard label="Pendencias" value={String(pendingTransactions.length)} helper="Transacoes aguardando confirmacao" icon={<ReceiptText size={22} />} />
+        <SummaryCard label="Canceladas" value={formatCurrency(cancelledRevenue)} helper="Volume que nao concluiu" icon={<CircleDollarSign size={22} />} />
+        <SummaryCard label="Ticket medio" value={formatCurrency(completedTransactions.length > 0 ? totalRevenue / completedTransactions.length : 0)} helper="Media por transacao paga" icon={<TrendingUp size={22} />} />
       </div>
 
-      {/* Transactions and Commissions Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-        {/* Recent Transactions (List) */}
-        <div className="xl:col-span-2 bg-surface-container rounded-3xl p-6 sm:p-8 glass-border">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-white">Transações Recentes</h2>
-            <button className="text-xs font-bold text-[#C8FF00] uppercase tracking-wider hover:underline">Ver Extrato</button>
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="glass-card rounded-3xl border border-white/5 p-8 xl:col-span-2">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">Transações recentes</h2>
+              <p className="text-sm text-on-surface-variant">Todas derivadas do modelo unificado de Transaction.</p>
+            </div>
+            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">{visibleTransactions.length} registro(s)</p>
           </div>
-          
-          <div className="space-y-4">
-            {/* Transaction Item 1 */}
-            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl group transition-all duration-300 hover:bg-surface-container-high border border-transparent hover:border-[#C8FF00]/10">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden glass-border shrink-0">
-                  <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRHEMBJZDRmhQfhHBbtaRsRm_euI4rvp0LWwqZBP30jlUkLL0ApqLDXDFyPesWAipXFGD4bLOz9r3jUYw8XbpMeQpznPjcIwIeJJWt0LWZzrFb2aAblnNBJwBGN1uRf7bAbvFXuvD-RCxzRNR44FW0MBW8RgRJgkfiNpIJf8VLECWICNwqHtRELZeGbboiolzphadDS56PS-Ui7Yw7Hb3iHkH2Sklzqtt2DrCXfThXSlYmvyj288uinEm2Q0df_ranvMRZltYIqzYE" alt="Corte" className="w-full h-full object-cover" />
-                </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white">Corte Fade + Barba</h4>
-                  <p className="text-[10px] sm:text-xs text-on-surface-variant">Marcos Vinicius • 14:20</p>
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className="text-sm font-black text-white">R$ 85,00</div>
-                <div className="hidden sm:flex items-center gap-1 justify-end mt-1">
-                  <span className="w-2 h-2 rounded-full bg-[#C8FF00] animate-pulse"></span>
-                  <span className="text-[10px] text-[#C8FF00] font-bold uppercase tracking-tighter">Liquidado</span>
-                </div>
-              </div>
-            </div>
 
-            {/* Transaction Item 2 */}
-            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl group transition-all duration-300 hover:bg-surface-container-high border border-transparent hover:border-[#C8FF00]/10">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-surface-container-highest flex items-center justify-center shrink-0">
-                  <ShoppingBag size={20} className="text-outline" />
-                </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white">Pomada Modeladora</h4>
-                  <p className="text-[10px] sm:text-xs text-on-surface-variant">Ana Clara • 13:45</p>
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className="text-sm font-black text-white">R$ 45,00</div>
-                <div className="hidden sm:flex items-center gap-1 justify-end mt-1">
-                  <span className="w-2 h-2 rounded-full bg-outline"></span>
-                  <span className="text-[10px] text-outline font-bold uppercase tracking-tighter">Pendente</span>
-                </div>
-              </div>
+          {loading ? (
+            <p className="text-on-surface-variant">Carregando financeiro...</p>
+          ) : error ? (
+            <div>
+              <p className="text-lg font-bold text-white">Nao foi possivel carregar o financeiro</p>
+              <p className="mt-2 text-sm text-on-surface-variant">{error}</p>
             </div>
-
-            {/* Transaction Item 3 */}
-            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-2xl group transition-all duration-300 hover:bg-surface-container-high border border-transparent hover:border-[#C8FF00]/10">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl overflow-hidden glass-border shrink-0">
-                  <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxgAwe8AkVb5VAC8rfLfXLMQwTz9Kxxs4T3We6l_SrI_dVpqGkxqgwHuCQBNwXAZiURro7Ufirrjs6iLqdhYpxHd6bjqmLYuRDwjBE-PwfSHCo79vNYMXyRgrShowxE_3RhPs1QcXyyXvzM5U-MvH5ojUfqq-NgOJ7Ot720y8aqv3rcZEERfKUDpQEOKE30CWJKRVV4MiPOT6ekEiN4udyqmNPl0czdra-1jThYHGcLdFHzPw8SUd6FPGZzs2iT_plwtc_4uJbpqt4" alt="Corte" className="w-full h-full object-cover" />
-                </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white">Corte Tesoura</h4>
-                  <p className="text-[10px] sm:text-xs text-on-surface-variant">Lucas Silva • 12:30</p>
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className="text-sm font-black text-white">R$ 70,00</div>
-                <div className="hidden sm:flex items-center gap-1 justify-end mt-1">
-                  <span className="w-2 h-2 rounded-full bg-[#C8FF00]"></span>
-                  <span className="text-[10px] text-[#C8FF00] font-bold uppercase tracking-tighter">Liquidado</span>
-                </div>
-              </div>
+          ) : visibleTransactions.length === 0 ? (
+            <div>
+              <p className="text-lg font-bold text-white">Nenhuma transação registrada</p>
+              <p className="mt-2 text-sm text-on-surface-variant">Abra o PDV ou conclua pagamentos para alimentar o extrato.</p>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-3">
+              {visibleTransactions.slice(0, 12).map((transaction) => {
+                const client = transaction.clientId ? clientById[transaction.clientId] : null;
+                const barber = transaction.barberId ? barberById[transaction.barberId] : null;
+                const barberName = barber ? userById[barber.userId]?.name ?? 'Profissional' : 'Sem profissional';
+                return (
+                  <div key={transaction.id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-surface-container-low p-4">
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#C8FF00]/10 font-black text-[#C8FF00]">
+                        {getInitials(client?.name ?? transaction.description ?? 'Tx')}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-white">{transaction.description || 'Transacao sem descricao'}</p>
+                        <p className="truncate text-xs text-on-surface-variant">
+                          {(client?.name ?? 'Cliente avulso')} • {barberName} • {paymentLabel(transaction.paymentMethod)}
+                        </p>
+                        <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">{formatDateTime(transaction.date)}</p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-black text-white">{formatCurrency(transaction.amount)}</p>
+                      <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
+                        transaction.status === 'COMPLETED'
+                          ? 'bg-[#C8FF00]/10 text-[#C8FF00]'
+                          : transaction.status === 'PENDING'
+                            ? 'bg-yellow-500/10 text-yellow-300'
+                            : 'bg-red-500/10 text-red-300'
+                      }`}>
+                        {transaction.status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Pay Commissions (Action Card) */}
-        <div className="bg-surface-container-high rounded-3xl p-6 sm:p-8 glass-border border-l-4 border-[#C8FF00] flex flex-col h-full mt-6 xl:mt-0">
-          <h2 className="text-lg font-bold text-white mb-6">Pagar Comissões</h2>
-          <p className="text-sm text-on-surface-variant mb-6 leading-relaxed">Você possui <span className="text-white font-bold">3 pagamentos</span> pendentes nesta semana.</p>
-          
-          <div className="space-y-4 mb-8 flex-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center text-[10px] font-black">RL</div>
-                <span className="text-sm text-white font-medium">Ricardo L.</span>
+        <div className="space-y-6">
+          <div className="glass-card rounded-3xl border border-white/5 p-8">
+            <h2 className="text-xl font-bold text-white">Meios de pagamento</h2>
+            {paymentBreakdown.length === 0 ? (
+              <p className="mt-4 text-sm text-on-surface-variant">Os percentuais aparecem quando houver transações concluídas.</p>
+            ) : (
+              <div className="mt-6 space-y-4">
+                {paymentBreakdown.map((entry) => {
+                  const pct = totalRevenue > 0 ? (entry.amount / totalRevenue) * 100 : 0;
+                  return (
+                    <div key={entry.label}>
+                      <div className="mb-2 flex items-center justify-between text-sm">
+                        <span className="font-medium text-white">{entry.label}</span>
+                        <span className="font-bold text-on-surface-variant">{pct.toFixed(0)}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-surface-container-highest">
+                        <div className="h-full rounded-full bg-[#C8FF00]" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <span className="text-sm font-bold text-[#C8FF00]">R$ 1.250,00</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center text-[10px] font-black">JS</div>
-                <span className="text-sm text-white font-medium">Jean S.</span>
-              </div>
-              <span className="text-sm font-bold text-[#C8FF00]">R$ 980,00</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center text-[10px] font-black">AM</div>
-                <span className="text-sm text-white font-medium">Andre M.</span>
-              </div>
-              <span className="text-sm font-bold text-[#C8FF00]">R$ 1.120,00</span>
-            </div>
+            )}
           </div>
 
-          <div className="pt-6 border-t border-outline-variant/20 mt-auto">
-            <div className="flex justify-between mb-4">
-              <span className="text-sm text-on-surface-variant">Total Pendente</span>
-              <span className="text-lg font-black text-white">R$ 3.350,00</span>
+          {role !== 'barbeiro' && (
+            <div className="glass-card rounded-3xl border border-white/5 p-8">
+              <h2 className="text-xl font-bold text-white">Comissões estimadas</h2>
+              {commissionOverview.length === 0 ? (
+                <p className="mt-4 text-sm text-on-surface-variant">As comissões são calculadas assim que existirem cobranças vinculadas aos barbeiros.</p>
+              ) : (
+                <div className="mt-6 space-y-3">
+                  {commissionOverview.slice(0, 6).map((barber) => (
+                    <div key={barber.id} className="flex items-center justify-between rounded-2xl border border-white/5 bg-surface-container-low p-4">
+                      <div>
+                        <p className="text-sm font-bold text-white">{barber.name}</p>
+                        <p className="text-xs text-on-surface-variant">
+                          {barber.commissionRate}% sobre {formatCurrency(barber.revenue)}
+                        </p>
+                      </div>
+                      <p className="text-sm font-black text-[#C8FF00]">{formatCurrency(barber.commissionAmount)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            
-            <button onClick={() => openModal('PDV')} className="w-full bg-[#C8FF00] text-[#4f6700] py-4 rounded-2xl font-black text-sm uppercase tracking-widest neon-glow-strong transition-all scale-100 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
-              <Send size={18} />
-              Pagar Agora
-            </button>
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
+
+const SummaryCard = ({
+  label,
+  value,
+  helper,
+  icon,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  icon: React.ReactNode;
+}) => (
+  <div className="glass-card rounded-3xl border border-white/5 p-6">
+    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#C8FF00]/10 text-[#C8FF00]">{icon}</div>
+    <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">{label}</p>
+    <p className="mt-2 text-3xl font-black text-white">{value}</p>
+    <p className="mt-2 text-xs text-on-surface-variant">{helper}</p>
+  </div>
+);
 
 export default Financeiro;

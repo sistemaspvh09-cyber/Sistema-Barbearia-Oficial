@@ -1,6 +1,6 @@
 # Vercel Production
 
-Este projeto publica o frontend React no Vercel e consome um backend Laravel separado.
+Este projeto publica o frontend React no Vercel e opera em modo Supabase-first no V1. O backend Laravel permanece opcional nesta fase.
 
 ## Frontend Vercel
 
@@ -8,14 +8,16 @@ Defina estas variaveis no projeto do Vercel:
 
 - `VITE_SUPABASE_URL=https://llfohlqwythkozphwkfo.supabase.co`
 - `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_s1KyOnah6tYKs51oHYhvbQ_j9mRnTyz` ou `VITE_SUPABASE_ANON_KEY=sb_publishable_s1KyOnah6tYKs51oHYhvbQ_j9mRnTyz`
-- `VITE_BACKEND_URL=https://<backend-public-url>`
+- `VITE_BACKEND_URL=https://<backend-public-url>` apenas se voce realmente for consumir a API publicada
 - `VITE_BARBERSHOP_SLUG` vazio em producao
 
-Use o mesmo projeto Supabase no frontend e no backend.
+Use o mesmo projeto Supabase no frontend e, se existir backend, também nele.
 
-Sem `VITE_BACKEND_URL`, o frontend cai em caminho relativo (`/api` e `/sanctum`), o que so funciona quando existe proxy ou rewrite configurado para o backend.
+No V1, o frontend funciona sem `VITE_BACKEND_URL` porque o núcleo operacional roda direto no Supabase.
 
 ## Backend Laravel
+
+Esta seção so é necessária se você decidir publicar o backend agora.
 
 Use `backend/.env.production.example` como base. Os campos obrigatorios para o fluxo real da InfinitePay sao:
 

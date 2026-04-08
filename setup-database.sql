@@ -10,28 +10,6 @@ create extension if not exists "pgcrypto";
 -- Helper functions
 -- =============================================
 
-create or replace function public.current_internal_user_id()
-returns uuid
-language sql
-stable
-as $$
-  select "id"
-  from public."User"
-  where "authId" = auth.uid()
-  limit 1
-$$;
-
-create or replace function public.current_barbershop_id()
-returns uuid
-language sql
-stable
-as $$
-  select "barbershopId"
-  from public."User"
-  where "authId" = auth.uid()
-  limit 1
-$$;
-
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
@@ -207,6 +185,28 @@ create table if not exists public."StockItem" (
   "createdAt" timestamptz not null default timezone('utc', now()),
   "updatedAt" timestamptz not null default timezone('utc', now())
 );
+
+create or replace function public.current_internal_user_id()
+returns uuid
+language sql
+stable
+as $$
+  select "id"
+  from public."User"
+  where "authId" = auth.uid()
+  limit 1
+$$;
+
+create or replace function public.current_barbershop_id()
+returns uuid
+language sql
+stable
+as $$
+  select "barbershopId"
+  from public."User"
+  where "authId" = auth.uid()
+  limit 1
+$$;
 
 -- =============================================
 -- UpdatedAt triggers

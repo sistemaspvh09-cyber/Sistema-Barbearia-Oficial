@@ -1,16 +1,18 @@
 import { X, User, Settings, HelpCircle, LogOut } from 'lucide-react';
 import { useModal } from '../../contexts/ModalContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBarbershopContext } from '../../contexts/BarbershopContext';
 import { useNavigate } from 'react-router-dom';
 
 const MobileDrawer = () => {
   const { activeModal, closeModal } = useModal();
   const { user, signOut } = useAuth();
+  const { role, internalUser, barbershop } = useBarbershopContext();
   const navigate = useNavigate();
 
   if (activeModal !== 'MENU_MOBILE') return null;
 
-  const isBarber = user?.user_metadata?.role === 'barbeiro';
+  const isBarber = role === 'barbeiro';
 
   const handleSignOut = () => {
     closeModal();
@@ -37,10 +39,11 @@ const MobileDrawer = () => {
                <User size={20} className={isBarber ? 'text-white' : 'text-[#C8FF00]'} />
              </div>
              <div>
-               <h3 className="font-bold text-white text-sm">{user?.email?.split('@')[0]}</h3>
+               <h3 className="font-bold text-white text-sm">{internalUser?.name || user?.email?.split('@')[0]}</h3>
                <p className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest">
                  {isBarber ? 'Sua Conta (Barbeiro)' : 'Premium Admin'}
                </p>
+               {barbershop && <p className="mt-1 text-[10px] text-on-surface-variant">{barbershop.name}</p>}
              </div>
           </div>
           <button onClick={closeModal} className="p-2 hover:bg-white/10 rounded-full transition-colors">

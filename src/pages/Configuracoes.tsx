@@ -1,14 +1,20 @@
 import {
-  Settings, Store, BellRing, ShieldCheck, CreditCard,
+  Store, BellRing, ShieldCheck, CreditCard,
   Smartphone, Save, Globe, Clock, CalendarDays, SmartphoneNfc,
   CheckCircle2, Loader2, Upload, Link, Zap,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
+import { useBarbershopContext } from '../contexts/BarbershopContext';
+import { useNotifications } from '../hooks/useNotifications';
+import { useBarbershopRuntime } from '../hooks/useBarbershopRuntime';
 import { useBarbershopSettings } from '../hooks/useBarbershopSettings';
 import { useNotificationToast } from '../contexts/NotificationToastContext';
 import { isAutoOpenEnabled, setAutoOpen, createTestEvent } from '../lib/googleCalendar';
 import { getCachedHandle, setCachedHandle, openInfinitePay } from '../lib/infinitePay';
+import { emitAppDataChanged } from '../lib/events';
+import { formatCurrency, formatDateTime } from '../lib/format';
+import { supabase } from '../lib/supabase';
 
 // ─── Day labels ───────────────────────────────────────────────────────────────
 const DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -36,9 +42,6 @@ const BarberView = () => {
         <div className="w-full lg:w-64 space-y-2">
           <button className="w-full flex items-center gap-3 px-4 py-3 bg-[#C8FF00]/10 text-[#C8FF00] rounded-xl font-bold border border-[#C8FF00]/20 text-left">
             <SmartphoneNfc size={20} /> <span>Integrações</span>
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 text-[#A0A0A0] hover:text-white hover:bg-white/5 rounded-xl transition-all text-left">
-            <BellRing size={20} /> <span>Notificações</span>
           </button>
         </div>
 
@@ -115,8 +118,12 @@ const GoogleIcon = ({ small = false }: { small?: boolean }) => (
 // ─── Admin view ───────────────────────────────────────────────────────────────
 
 const AdminView = () => {
+  const { user } = useAuth();
+  const { internalUser } = useBarbershopContext();
   const { showToast } = useNotificationToast();
   const { barbershop, workingHours, setWorkingHours, loading, saving, saveBarbershop, saveWorkingHours, uploadLogo } = useBarbershopSettings();
+  const { services, transactions, appointments, loading: runtimeLoading } = useBarbershopRuntime();
+  const { notifications, unreadCount, markAllAsRead, loading: notificationsLoading } = useNotifications();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('perfil');
   const [form, setForm] = useState({
@@ -133,6 +140,14 @@ const AdminView = () => {
   // InfinitePay handle
   const [ipayHandle, setIpayHandle] = useState(getCachedHandle());
   const [savingHandle, setSavingHandle] = useState(false);
+  const [serviceForm, setServiceForm] = useState({
+    name: '',
+    price: '',
+    duration: '30',
+    category: '',
+  });
+  const [savingService, setSavingService] = useState(false);
+  const [copyLabel, setCopyLabel] = useState('Copiar link');
 
   // Populate form when barbershop data loads
   useEffect(() => {
@@ -203,6 +218,99 @@ const AdminView = () => {
       { amountCents: 100, paymentMethod: 'CREDIT_CARD', installments: 1, description: 'Teste de integração', clientId: null, barbershopId: barbershop?.id ?? null },
     );
   };
+
+  const handleCreateService = async () => {
+    if (!barbershop?.id || !serviceForm.name.trim()) {
+      showToast({ type: 'error', title: 'Serviço inválido', message: 'Informe pelo menos o nome do serviço.' });
+      return;
+    }
+
+    const parsedPrice = Number(serviceForm.price.replace(',', '.'));
+    const parsedDuration = Number(serviceForm.duration);
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      showToast({ type: 'error', title: 'Preço inválido', message: 'Informe um preço numérico válido.' });
+      return;
+    }
+
+    if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
+      showToast({ type: 'error', title: 'Duração inválida', message: 'Informe a duração em minutos.' });
+      return;
+    }
+
+    setSavingService(true);
+
+    const { error } = await supabase.from('Service').insert({
+      barbershopId: barbershop.id,
+      name: serviceForm.name.trim(),
+      category: serviceForm.category.trim() || 'geral',
+      price: parsedPrice,
+      duration: parsedDuration,
+      sortOrder: services.length,
+      isActive: true,
+    });
+
+    setSavingService(false);
+
+    if (error) {
+      showToast({ type: 'error', title: 'Erro ao criar serviço', message: error.message });
+      return;
+    }
+
+    setServiceForm({ name: '', price: '', duration: '30', category: '' });
+    emitAppDataChanged('service-created');
+    showToast({ type: 'success', title: 'Serviço adicionado' });
+  };
+
+  const handleToggleService = async (serviceId: string, nextActive: boolean) => {
+    const { error } = await supabase
+      .from('Service')
+      .update({ isActive: nextActive, updatedAt: new Date().toISOString() })
+      .eq('id', serviceId);
+
+    if (error) {
+      showToast({ type: 'error', title: 'Não foi possível atualizar o serviço', message: error.message });
+      return;
+    }
+
+    emitAppDataChanged('service-updated');
+  };
+
+  const handleCopyPublicLink = async () => {
+    if (!barbershop?.slug) return;
+
+    const publicLink = `${window.location.origin}/app?barbershop=${barbershop.slug}`;
+
+    try {
+      await navigator.clipboard.writeText(publicLink);
+      setCopyLabel('Link copiado');
+      window.setTimeout(() => setCopyLabel('Copiar link'), 2000);
+    } catch {
+      showToast({ type: 'error', title: 'Não foi possível copiar o link' });
+    }
+  };
+
+  const completedTransactions = transactions.filter(
+    (transaction) => transaction.type === 'INCOME' && transaction.status === 'COMPLETED',
+  );
+  const pendingTransactions = transactions.filter((transaction) => transaction.status === 'PENDING');
+  const totalReceived = completedTransactions.reduce((total, transaction) => total + Number(transaction.amount || 0), 0);
+  const recentTransactions = transactions.slice(0, 5);
+  const openDays = workingHours.filter((entry) => entry.isOpen).length;
+  const publicLink = barbershop?.slug ? `${window.location.origin}/app?barbershop=${barbershop.slug}` : '';
+  const recentNotifications = notifications.slice(0, 5);
+  const appointmentsThisMonth = appointments.filter((appointment) => {
+    const now = new Date();
+    const scheduledAt = new Date(appointment.scheduledAt);
+    return scheduledAt.getMonth() === now.getMonth() && scheduledAt.getFullYear() === now.getFullYear();
+  }).length;
+  const transactionsByMethod = Object.entries(
+    completedTransactions.reduce<Record<string, number>>((accumulator, transaction) => {
+      const key = transaction.paymentMethod || 'SEM_METODO';
+      accumulator[key] = (accumulator[key] || 0) + Number(transaction.amount || 0);
+      return accumulator;
+    }, {}),
+  ).sort((a, b) => b[1] - a[1]);
 
   const TABS: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'perfil',       label: 'Perfil da Loja',      icon: <Store size={18} /> },
@@ -470,21 +578,261 @@ const AdminView = () => {
             </div>
           )}
 
-          {/* ── Pagamentos (placeholder) ────────────────────── */}
           {activeTab === 'pagamentos' && (
-            <div className="glass-card rounded-[1.5rem] p-8 border border-white/5 text-center py-16">
-              <CreditCard size={40} className="text-on-surface-variant mx-auto mb-4" />
-              <p className="text-white font-bold">Gestão de Pagamentos</p>
-              <p className="text-sm text-on-surface-variant mt-1">Taxas e métodos de pagamento — em breve.</p>
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <MetricCard
+                  title="Recebido"
+                  value={formatCurrency(totalReceived)}
+                  helper={`${completedTransactions.length} transações concluídas`}
+                  loading={runtimeLoading}
+                />
+                <MetricCard
+                  title="Pendentes"
+                  value={String(pendingTransactions.length)}
+                  helper="Aguardando conclusão ou callback"
+                  loading={runtimeLoading}
+                />
+                <MetricCard
+                  title="Atendimentos no mês"
+                  value={String(appointmentsThisMonth)}
+                  helper="Baseado nos agendamentos reais"
+                  loading={runtimeLoading}
+                />
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <CreditCard className="text-[#C8FF00]" size={22} /> Formas de pagamento
+                  </h2>
+                  {transactionsByMethod.length === 0 ? (
+                    <EmptyCardMessage message="Nenhum recebimento concluído ainda." />
+                  ) : (
+                    <div className="space-y-3">
+                      {transactionsByMethod.map(([method, total]) => (
+                        <div key={method} className="flex items-center justify-between rounded-xl border border-white/5 bg-surface-container p-4">
+                          <div>
+                            <p className="text-sm font-bold text-white">{method.replaceAll('_', ' ')}</p>
+                            <p className="text-xs text-on-surface-variant">Volume registrado no banco</p>
+                          </div>
+                          <span className="text-sm font-black text-[#C8FF00]">{formatCurrency(total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <Zap className="text-[#C8FF00]" size={22} /> Últimas transações
+                  </h2>
+                  {recentTransactions.length === 0 ? (
+                    <EmptyCardMessage message="Nenhuma transação registrada ainda." />
+                  ) : (
+                    <div className="space-y-3">
+                      {recentTransactions.map((transaction) => (
+                        <div key={transaction.id} className="rounded-xl border border-white/5 bg-surface-container p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-bold text-white">{transaction.description || 'Movimentação financeira'}</p>
+                              <p className="mt-1 text-xs uppercase tracking-widest text-on-surface-variant">
+                                {transaction.status} • {transaction.gateway || transaction.paymentMethod || 'manual'}
+                              </p>
+                            </div>
+                            <span className={`text-sm font-black ${transaction.status === 'COMPLETED' ? 'text-[#C8FF00]' : 'text-yellow-400'}`}>
+                              {formatCurrency(Number(transaction.amount || 0))}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-xs text-on-surface-variant">{formatDateTime(transaction.date)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* ── Outros (placeholder) ────────────────────────── */}
-          {(activeTab === 'notificacoes' || activeTab === 'seguranca' || activeTab === 'app') && (
-            <div className="glass-card rounded-[1.5rem] p-8 border border-white/5 text-center py-16">
-              <Settings size={40} className="text-on-surface-variant mx-auto mb-4" />
-              <p className="text-white font-bold capitalize">{activeTab.replace('_', ' ')}</p>
-              <p className="text-sm text-on-surface-variant mt-1">Esta seção está em desenvolvimento.</p>
+          {activeTab === 'notificacoes' && (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <MetricCard title="Não lidas" value={String(unreadCount)} helper="Atualizadas via realtime" loading={notificationsLoading} />
+                <MetricCard title="Total" value={String(notifications.length)} helper="Histórico salvo na tabela Notification" loading={notificationsLoading} />
+                <MetricCard title="Usuário vinculado" value={internalUser?.name || 'Sem usuário'} helper="Contexto interno resolvido do Supabase" loading={false} />
+              </div>
+
+              <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Feed recente</h2>
+                    <p className="mt-1 text-sm text-on-surface-variant">As notificações abaixo já estão sendo lidas diretamente do banco.</p>
+                  </div>
+                  <button
+                    onClick={() => markAllAsRead()}
+                    disabled={!unreadCount}
+                    className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Marcar tudo como lido
+                  </button>
+                </div>
+
+                {recentNotifications.length === 0 ? (
+                  <EmptyCardMessage message="Nenhuma notificação registrada ainda." />
+                ) : (
+                  <div className="space-y-3">
+                    {recentNotifications.map((notification) => (
+                      <div key={notification.id} className="rounded-xl border border-white/5 bg-surface-container p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-bold text-white">{notification.title}</p>
+                            <p className="mt-1 text-sm text-on-surface-variant">{notification.message}</p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${notification.is_read ? 'bg-white/5 text-on-surface-variant' : 'bg-[#C8FF00]/10 text-[#C8FF00]'}`}>
+                            {notification.is_read ? 'Lida' : 'Nova'}
+                          </span>
+                        </div>
+                        <p className="mt-3 text-xs text-on-surface-variant">{formatDateTime(notification.created_at)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'seguranca' && (
+            <div className="grid gap-6 xl:grid-cols-2">
+              <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <ShieldCheck className="text-[#C8FF00]" size={22} /> Conta autenticada
+                </h2>
+                <div className="space-y-3 text-sm">
+                  <InfoRow label="E-mail" value={user?.email || 'Não informado'} />
+                  <InfoRow label="Role interna" value={internalUser?.role || 'Não resolvida'} />
+                  <InfoRow label="Auth user" value={user?.id || 'Sem sessão'} mono />
+                  <InfoRow label="Usuário interno" value={internalUser?.id || 'Não criado'} mono />
+                  <InfoRow label="Último login" value={user?.last_sign_in_at ? formatDateTime(user.last_sign_in_at) : 'Não disponível'} />
+                </div>
+              </div>
+
+              <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <Store className="text-[#C8FF00]" size={22} /> Vínculo operacional
+                </h2>
+                <div className="space-y-3 text-sm">
+                  <InfoRow label="Barbearia ativa" value={barbershop?.name || 'Não vinculada'} />
+                  <InfoRow label="Slug público" value={barbershop?.slug || 'Não definido'} mono />
+                  <InfoRow label="Cidade / UF" value={barbershop ? `${barbershop.city || '-'} / ${barbershop.state || '-'}` : 'Não definido'} />
+                  <InfoRow label="InfinitePay handle" value={ipayHandle || 'Não configurado'} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'app' && (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <MetricCard title="Link público" value={barbershop?.slug ? 'Ativo' : 'Sem slug'} helper="Acesso ao app do cliente" loading={loading} />
+                <MetricCard title="Serviços ativos" value={String(services.filter((service) => service.isActive).length)} helper="Catálogo usado no agendamento" loading={runtimeLoading} />
+                <MetricCard title="Dias abertos" value={String(openDays)} helper="Baseado na tabela WorkingHours" loading={loading} />
+              </div>
+
+              <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Vitrine do cliente</h2>
+                    <p className="mt-1 text-sm text-on-surface-variant">Esse link abre a barbearia pública usando o slug salvo no banco.</p>
+                  </div>
+                  <button
+                    onClick={handleCopyPublicLink}
+                    disabled={!publicLink}
+                    className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {copyLabel}
+                  </button>
+                </div>
+
+                <div className="rounded-xl border border-white/5 bg-surface-container p-4">
+                  <p className="text-sm text-white break-all">{publicLink || 'Salve o perfil da loja para gerar o link público.'}</p>
+                </div>
+              </div>
+
+              <div className="glass-card rounded-[1.5rem] p-8 border border-white/5">
+                <div className="flex items-center gap-2 mb-6">
+                  <Smartphone className="text-[#C8FF00]" size={22} />
+                  <h2 className="text-xl font-bold text-white">Catálogo de serviços</h2>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-4 mb-6">
+                  <input
+                    type="text"
+                    value={serviceForm.name}
+                    onChange={(event) => setServiceForm((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="Nome do serviço"
+                    className="rounded-xl border border-white/10 bg-surface-container px-4 py-3 text-sm text-white placeholder:text-on-surface-variant focus:outline-none focus:border-[#C8FF00]"
+                  />
+                  <input
+                    type="text"
+                    value={serviceForm.price}
+                    onChange={(event) => setServiceForm((current) => ({ ...current, price: event.target.value }))}
+                    placeholder="Preço"
+                    className="rounded-xl border border-white/10 bg-surface-container px-4 py-3 text-sm text-white placeholder:text-on-surface-variant focus:outline-none focus:border-[#C8FF00]"
+                  />
+                  <input
+                    type="number"
+                    min="5"
+                    step="5"
+                    value={serviceForm.duration}
+                    onChange={(event) => setServiceForm((current) => ({ ...current, duration: event.target.value }))}
+                    placeholder="Duração"
+                    className="rounded-xl border border-white/10 bg-surface-container px-4 py-3 text-sm text-white placeholder:text-on-surface-variant focus:outline-none focus:border-[#C8FF00]"
+                  />
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={serviceForm.category}
+                      onChange={(event) => setServiceForm((current) => ({ ...current, category: event.target.value }))}
+                      placeholder="Categoria"
+                      className="min-w-0 flex-1 rounded-xl border border-white/10 bg-surface-container px-4 py-3 text-sm text-white placeholder:text-on-surface-variant focus:outline-none focus:border-[#C8FF00]"
+                    />
+                    <button
+                      onClick={handleCreateService}
+                      disabled={savingService}
+                      className="flex items-center gap-2 rounded-xl bg-[#C8FF00] px-4 py-3 text-sm font-black text-[#4f6700] transition-colors hover:bg-[#b3e600] disabled:opacity-60 shrink-0"
+                    >
+                      {savingService ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
+
+                {services.length === 0 ? (
+                  <EmptyCardMessage message="Nenhum serviço cadastrado ainda. Adicione o primeiro acima." />
+                ) : (
+                  <div className="space-y-3">
+                    {services.map((service) => (
+                      <div key={service.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-xl border border-white/5 bg-surface-container p-4">
+                        <div>
+                          <p className="text-sm font-bold text-white">{service.name}</p>
+                          <p className="mt-1 text-xs uppercase tracking-widest text-on-surface-variant">
+                            {(service.category || 'geral').toUpperCase()} • {service.duration} min
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-black text-[#C8FF00]">{formatCurrency(Number(service.price || 0))}</span>
+                          <button
+                            onClick={() => handleToggleService(service.id, !service.isActive)}
+                            className={`rounded-xl px-3 py-2 text-xs font-bold transition-colors ${service.isActive ? 'bg-[#C8FF00]/10 text-[#C8FF00]' : 'bg-white/5 text-on-surface-variant'}`}
+                          >
+                            {service.isActive ? 'Ativo' : 'Inativo'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -496,10 +844,46 @@ const AdminView = () => {
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
+function MetricCard({
+  title,
+  value,
+  helper,
+  loading,
+}: {
+  title: string;
+  value: string;
+  helper: string;
+  loading: boolean;
+}) {
+  return (
+    <div className="glass-card rounded-[1.5rem] p-6 border border-white/5">
+      <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">{title}</p>
+      <p className="mt-3 text-3xl font-black text-white">{loading ? '...' : value}</p>
+      <p className="mt-2 text-sm text-on-surface-variant">{helper}</p>
+    </div>
+  );
+}
+
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-xl border border-white/5 bg-surface-container p-4">
+      <span className="text-on-surface-variant">{label}</span>
+      <span className={`text-right font-bold text-white ${mono ? 'font-mono text-xs' : 'text-sm'}`}>{value}</span>
+    </div>
+  );
+}
+
+function EmptyCardMessage({ message }: { message: string }) {
+  return (
+    <div className="rounded-xl border border-white/5 bg-surface-container p-4 text-sm text-on-surface-variant">
+      {message}
+    </div>
+  );
+}
+
 const Configuracoes = () => {
-  const { user } = useAuth();
-  const isBarber = user?.user_metadata?.role === 'barbeiro';
-  return isBarber ? <BarberView /> : <AdminView />;
+  const { role } = useBarbershopContext();
+  return role === 'barbeiro' ? <BarberView /> : <AdminView />;
 };
 
 export default Configuracoes;
